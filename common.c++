@@ -1,0 +1,81 @@
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sched.h>
+#include <iostream>
+
+#include <cerrno>
+#include <cstring>
+
+#include "common.h"
+
+/* Subtract the ‘struct timeval’ values X and Y,
+   storing the result in RESULT.
+   Return 1 if the difference is negative, otherwise 0. */
+
+struct timespec operator-(const struct timespec &lhs,
+                                 const struct timespec &rhs) {
+  struct timespec x = lhs;
+  struct timespec y = rhs;
+  struct timespec result;
+  /* Perform the carry for the later subtraction by updating y. */
+  if (x.tv_nsec < y.tv_nsec) {
+    long nsec = (y.tv_nsec - x.tv_nsec) / 1000000000 + 1;
+    y.tv_nsec -= 1000000000 * nsec;
+    y.tv_sec += nsec;
+  }
+  if (x.tv_nsec - y.tv_nsec > 1000000000) {
+    long nsec = (x.tv_nsec - y.tv_nsec) / 1000000000;
+    y.tv_nsec += 1000000 * nsec;
+    y.tv_sec -= nsec;
+  }
+
+  /* Compute the time remaining to wait.
+     tv_usec is certainly positive. */
+  result.tv_sec = x.tv_sec - y.tv_sec;
+  result.tv_nsec = x.tv_nsec - y.tv_nsec;
+
+  /* Return 1 if result is negative. */
+  return result;
+}
+
+pid_t gettid() { return static_cast<pid_t>(syscall(SYS_gettid)); }
+
+void set_affinity(unsigned cpu, pid_t tid) {
+  cpu_set_t cpu_set;
+  CPU_ZERO(&cpu_set);
+  CPU_SET(cpu, &cpu_set);
+  check_zero(sched_setaffinity(tid, static_cast<size_t>(CPU_COUNT(&cpu_set)),
+                               &cpu_set),
+             "Error setting affinity");
+}
+
+void set_deadline_handler(signal_handler_t handler) {
+  struct sigaction act;
+#if defined(__GNU_LIBRARY__) && defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
+#endif
+  act.sa_sigaction = handler;
+#if defined(__GNU_LIBRARY__) && defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+  act.sa_flags = SA_SIGINFO;
+  check_zero(sigaction(SIGXCPU, &act, nullptr),
+             "Error establishing signal handler");
+}
+
+static std::atomic_bool deadline_passed{false};
+
+static void deadline_handler(int, siginfo_t *, void *) {
+  deadline_passed = true;
+}
+
+void wait_for_deadline() {
+  set_deadline_handler(&deadline_handler);
+  while (!deadline_passed)
+    ;
+
+  deadline_passed = false;
+}
+
+
