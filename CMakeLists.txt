@@ -21,3 +21,5 @@ add_library(common STATIC common.c++)
 add_executable(cputime cputime.c++)
 target_link_libraries(cputime common ${CMAKE_THREAD_LIBS_INIT})
 
+add_executable(syscall syscall.c++)
+
