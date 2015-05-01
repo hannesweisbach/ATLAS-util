@@ -9,8 +9,7 @@
 #include <ctime>
 #include <csignal>
 
-template <typename T>
-void check_zero(T ret, std::string msg) {
+template <typename T> void check_zero(T ret, std::string msg = "") {
   static_assert(std::is_integral<T>::value,
                 "Return value check only for integers.");
   if (ret) {
