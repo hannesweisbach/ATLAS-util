@@ -2,6 +2,8 @@
 
 #include <chrono>
 
+#include <cerrno>
+
 #include <sys/types.h>
 
 #if defined(__x86_64__)
@@ -69,5 +71,12 @@ decltype(auto) submit(pid_t tid, uint64_t id,
   return submit(tid, id, &tv_exectime, &tv_deadline, deadline::absolute);
 }
 
-static inline decltype(auto) next(void) { return syscall(SYS_atlas_next); }
+static inline decltype(auto) next(void) {
+  long ret;
+  for (ret = syscall(SYS_atlas_next); ret && errno == EINTR;
+       ret = syscall(SYS_atlas_next)) {
+  }
+  return ret;
+}
+
 }
