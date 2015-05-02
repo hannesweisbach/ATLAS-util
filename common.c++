@@ -40,14 +40,18 @@ struct timespec operator-(const struct timespec &lhs,
 
 pid_t gettid() { return static_cast<pid_t>(syscall(SYS_gettid)); }
 
-void set_affinity(unsigned cpu, pid_t tid) {
+void set_affinity(std::initializer_list<unsigned> cpus, pid_t tid) {
   cpu_set_t cpu_set;
   CPU_ZERO(&cpu_set);
-  CPU_SET(cpu, &cpu_set);
+  for (const auto &cpu : cpus)
+    CPU_SET(cpu, &cpu_set);
+
   check_zero(sched_setaffinity(tid, static_cast<size_t>(CPU_COUNT(&cpu_set)),
                                &cpu_set),
              "Error setting affinity");
 }
+
+void set_affinity(unsigned cpu, pid_t tid) { set_affinity({cpu}, tid); }
 
 void set_deadline_handler(signal_handler_t handler) {
   struct sigaction act;

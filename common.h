@@ -3,6 +3,7 @@
 #include <type_traits>
 #include <string>
 #include <iostream>
+#include <initializer_list>
 
 #include <cstring>
 #include <cerrno>
@@ -22,6 +23,7 @@ struct timespec operator-(const struct timespec &lhs,
                           const struct timespec &rhs);
 pid_t gettid();
 void set_affinity(unsigned cpu = 0, pid_t tid = gettid());
+void set_affinity(std::initializer_list<unsigned> cpus, pid_t tid = gettid());
 
 using signal_handler_t = void (*)(int, siginfo_t *, void *);
 void set_deadline_handler(signal_handler_t handler);
