@@ -28,6 +28,7 @@ static inline long submit(pid_t pid, uint64_t id, struct timeval *exectime,
   return syscall(SYS_atlas_submit, pid, id, exectime, deadline, reference);
 }
 
+namespace {
 template <class Rep, class Period>
 struct timeval to_timeval(const std::chrono::duration<Rep, Period> &duration) {
   using namespace std::chrono;
@@ -49,6 +50,7 @@ struct timeval to_timeval(const std::chrono::time_point<Clock, Duration> &t) {
       static_cast<time_t>(secs.time_since_epoch().count()),
       static_cast<suseconds_t>(usecs.count()),
   };
+}
 }
 
 template <class Rep1, class Period1, class Rep2, class Period2>
