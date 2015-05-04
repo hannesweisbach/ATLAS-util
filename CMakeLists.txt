@@ -24,5 +24,8 @@ target_link_libraries(cputime common ${CMAKE_THREAD_LIBS_INIT})
 add_executable(zero_exec zero_exec.c++)
 target_link_libraries(zero_exec common ${CMAKE_THREAD_LIBS_INIT})
 
+add_executable(fork fork.c++)
+target_link_libraries(fork common)
+
 add_executable(syscall syscall.c++)
 
