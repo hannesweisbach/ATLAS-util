@@ -53,8 +53,9 @@ void set_affinity(std::initializer_list<unsigned> cpus, pid_t tid) {
 
 void set_affinity(unsigned cpu, pid_t tid) { set_affinity({cpu}, tid); }
 
-void set_deadline_handler(signal_handler_t handler) {
+void set_signal_handler(int signal, signal_handler_t handler) {
   struct sigaction act;
+  memset(&act, 0, sizeof(act));
 #if defined(__GNU_LIBRARY__) && defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
@@ -64,8 +65,12 @@ void set_deadline_handler(signal_handler_t handler) {
 #pragma clang diagnostic pop
 #endif
   act.sa_flags = SA_SIGINFO;
-  check_zero(sigaction(SIGXCPU, &act, nullptr),
+  check_zero(sigaction(signal, &act, nullptr),
              "Error establishing signal handler");
+}
+
+void set_deadline_handler(signal_handler_t handler) {
+  set_signal_handler(SIGXCPU, handler);
 }
 
 static std::atomic_bool deadline_passed{false};
