@@ -118,5 +118,7 @@ int main(int argc, char *argv[]) {
 
   if (extra_thread) {
     consumer.join();
+  } else {
+    func();
   }
 }
