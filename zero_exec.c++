@@ -97,7 +97,8 @@ int main(int argc, char *argv[]) {
   std::tie(num, pinned_to, extra_thread) = options(argc, argv);
 
   auto func = [&tid, &run, pinned_to, num]() {
-    set_affinity(static_cast<unsigned>(pinned_to));
+    if (pinned_to >= 0)
+      set_affinity(static_cast<unsigned>(pinned_to));
     tid = gettid();
     run = true;
     for (size_t i = 0; i < num; ++i) {
