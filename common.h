@@ -36,6 +36,26 @@ void busy_until(const std::chrono::time_point<Clock, Duration> &t) {
   }
 }
 
+class cputime_clock {
+public:
+  using rep = typename std::chrono::nanoseconds::rep;
+  using period = typename std::chrono::nanoseconds::period;
+  using duration = typename std::chrono::nanoseconds;
+  using time_point = std::chrono::time_point<cputime_clock>;
+  static constexpr bool is_steady = false;
+
+  static time_point now() {
+    struct timespec cputime;
+
+    check_zero(clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cputime),
+               "clock_gettime");
+
+    rep ns = static_cast<rep>(cputime.tv_nsec) +
+             static_cast<rep>(cputime.tv_sec) * 1'000'000'000;
+    return time_point(duration(ns));
+  }
+};
+
 struct timespec operator-(const struct timespec &lhs,
                           const struct timespec &rhs);
 pid_t gettid();
