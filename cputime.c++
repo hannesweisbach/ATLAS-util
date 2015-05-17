@@ -65,18 +65,14 @@ std::vector<int64_t> cpu_time(std::chrono::duration<Rep, Period> exec_time,
 
     atlas::next();
     {
-      struct timespec start;
-      struct timespec end;
-
-      check_zero(clock_gettime(CLOCK_THREAD_CPUTIME_ID, &start), "Start time");
+      auto start = cputime_clock::now();
 
       wait_for_deadline();
 
-      check_zero(clock_gettime(CLOCK_THREAD_CPUTIME_ID, &end), "End time");
+      auto end = cputime_clock::now();
 
-      struct timespec diff = end - start;
-      auto ns = diff.tv_nsec + diff.tv_sec * 1'000'000'000;
-      exec_times.push_back(ns);
+      auto ns = duration_cast<nanoseconds>(end - start);
+      exec_times.push_back(ns.count());
     }
   }
 
