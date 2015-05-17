@@ -30,5 +30,8 @@ target_link_libraries(producer-consumer common ${CMAKE_THREAD_LIBS_INIT})
 add_executable(fork fork.c++)
 target_link_libraries(fork common)
 
+add_executable(blocking blocking.c++)
+target_link_libraries(blocking common ${CMAKE_THREAD_LIBS_INIT})
+
 add_executable(syscall syscall.c++)
 
