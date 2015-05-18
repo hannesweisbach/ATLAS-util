@@ -79,6 +79,9 @@ static void deadline_handler(int, siginfo_t *, void *) {
   deadline_passed = true;
 }
 
+static void ignore_handler(int, siginfo_t *, void *) {}
+void ignore_deadlines() { set_signal_handler(SIGXCPU, ignore_handler); }
+
 void wait_for_deadline() {
   set_deadline_handler(&deadline_handler);
   while (!deadline_passed)

@@ -60,5 +60,6 @@ void set_affinity(std::initializer_list<unsigned> cpus, pid_t tid = gettid());
 using signal_handler_t = void (*)(int, siginfo_t *, void *);
 void set_signal_handler(int signal, signal_handler_t handler);
 void set_deadline_handler(signal_handler_t handler);
-void wait_for_deadline(); 
+void ignore_deadlines();
+void wait_for_deadline();
 
