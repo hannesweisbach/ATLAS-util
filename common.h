@@ -19,21 +19,16 @@ template <typename T> void check_zero(T ret, std::string msg = "") {
   }
 }
 
-template <class Rep, class Period>
-void busy_for(std::chrono::duration<Rep, Period> duration) {
-  using namespace std::chrono;
-  using duration_t = std::chrono::duration<Rep, Period>;
-  auto start = high_resolution_clock::now();
-  for (auto now = high_resolution_clock::now();
-       duration_cast<duration_t>(now - start) < duration;
-       now = high_resolution_clock::now()) {
-  }
-}
-
 template <class Clock, class Duration>
 void busy_until(const std::chrono::time_point<Clock, Duration> &t) {
   for (; Clock::now() < t;) {
   }
+}
+
+template <class Clock = typename std::chrono::high_resolution_clock, class Rep,
+          class Period>
+void busy_for(std::chrono::duration<Rep, Period> duration) {
+  busy_until(Clock::now() + duration);
 }
 
 class cputime_clock {
