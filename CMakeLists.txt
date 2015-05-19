@@ -16,6 +16,11 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-exit-time-destructors")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-padded")
 
 find_package(Threads)
+set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_RUNTIME ON)
+find_package(Boost 1.54.0 COMPONENTS program_options)
+include_directories(${Boost_INCLUDE_DIR})
 
 add_library(common STATIC common.c++)
 add_executable(cputime cputime.c++)
