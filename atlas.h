@@ -23,16 +23,6 @@
 
 namespace atlas {
 
-enum class deadline {
-  absolute = 0,
-  relative = 1,
-};
-
-static inline long submit(pid_t pid, uint64_t id, struct timeval *exectime,
-                          struct timeval *deadline, enum deadline reference) {
-  return syscall(SYS_atlas_submit, pid, id, exectime, deadline, reference);
-}
-
 namespace {
 template <class Rep, class Period>
 struct timeval to_timeval(const std::chrono::duration<Rep, Period> &duration) {
@@ -63,9 +53,10 @@ decltype(auto) submit(pid_t tid, uint64_t id,
                       std::chrono::duration<Rep1, Period1> exec_time,
                       std::chrono::duration<Rep2, Period2> deadline) {
   struct timeval tv_exectime = to_timeval(exec_time);
-  struct timeval tv_deadline = to_timeval(deadline);
+  struct timeval tv_deadline =
+      to_timeval(std::chrono::high_resolution_clock::now() + deadline);
 
-  return submit(tid, id, &tv_exectime, &tv_deadline, deadline::relative);
+  return syscall(SYS_atlas_submit, tid, id, &tv_exectime, &tv_deadline);
 }
 
 template <class Rep, class Period, class Clock, class Duration>
@@ -75,7 +66,7 @@ decltype(auto) submit(pid_t tid, uint64_t id,
   struct timeval tv_exectime = to_timeval(exec_time);
   struct timeval tv_deadline = to_timeval(deadline);
 
-  return submit(tid, id, &tv_exectime, &tv_deadline, deadline::absolute);
+  return syscall(SYS_atlas_submit, tid, id, &tv_exectime, &tv_deadline);
 }
 
 namespace np {
