@@ -9,6 +9,7 @@
 
 #include <cerrno>
 
+#include <unistd.h>
 #include <sys/types.h>
 
 #if defined(__x86_64__)
