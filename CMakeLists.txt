@@ -41,5 +41,8 @@ target_link_libraries(overrun common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES
 add_executable(blocking blocking.c++)
 target_link_libraries(blocking common ${CMAKE_THREAD_LIBS_INIT})
 
+add_executable(overlap overlap.c++)
+target_link_libraries(overlap common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+
 add_executable(syscall syscall.c++)
 
