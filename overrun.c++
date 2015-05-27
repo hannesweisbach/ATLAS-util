@@ -12,6 +12,7 @@ static std::atomic<size_t> id{0};
 static void overload() {
   using namespace std::chrono;
   auto now = std::chrono::high_resolution_clock::now();
+
   check_zero(atlas::np::submit(std::this_thread::get_id(), id++, 1s, now + 1.5s));
   check_zero(atlas::np::submit(std::this_thread::get_id(), id++, 1s, now + 1.5s));
 
@@ -35,17 +36,17 @@ static void overrun_cfs() {
 
   /* Scheduler must be ATLAS */
   check_zero(atlas::next());
-  std::cout << "Scheduler: " << sched_getscheduler(0) << std::endl;
+  std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
 
   /* miss first deadline, scheduler should be CFS */
   wait_for_deadline();
-  std::cout << "Scheduler: " << sched_getscheduler(0) << std::endl;
+  std::cout << "Scheduler: " << sched_getscheduler(0) << " (0)" << std::endl;
 
   /* The task runs into its reservation for the second job - the task should be
    * scheduled by ATLAS again.
    */
   busy_for(1.5s);
-  std::cout << "Scheduler: " << sched_getscheduler(0) << std::endl;
+  std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
 }
 
 static void overrun_recover() {
@@ -57,20 +58,20 @@ static void overrun_recover() {
 
   /* Scheduler must be ATLAS */
   check_zero(atlas::next());
-  std::cout << "Scheduler: " << sched_getscheduler(0) << std::endl;
+  std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
 
   /* accumulate blocking time to get in Recover */
   std::this_thread::sleep_for(1.5s);
 
   /* miss first deadline, scheduler should be Recover */
   wait_for_deadline();
-  std::cout << "Scheduler: " << sched_getscheduler(0) << std::endl;
+  std::cout << "Scheduler: " << sched_getscheduler(0) << " (8)" << std::endl;
 
   /* The task runs into its reservation for the second job - the task should be
    * scheduled by ATLAS again.
    */
   busy_for(1.5s);
-  std::cout << "Scheduler: " << sched_getscheduler(0) << std::endl;
+  std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
 }
 
 int main(int argc, char *argv[]) {
