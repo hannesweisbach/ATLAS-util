@@ -73,7 +73,7 @@ void set_deadline_handler(signal_handler_t handler) {
   set_signal_handler(SIGXCPU, handler);
 }
 
-static std::atomic_bool deadline_passed{false};
+static thread_local std::atomic_bool deadline_passed{false};
 
 static void deadline_handler(int, siginfo_t *, void *) {
   deadline_passed = true;
