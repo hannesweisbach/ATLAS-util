@@ -44,6 +44,9 @@ target_link_libraries(blocking common ${CMAKE_THREAD_LIBS_INIT})
 add_executable(submit submit.c++)
 target_link_libraries(submit common ${CMAKE_THREAD_LIBS_INIT})
 
+add_executable(next next.c++)
+target_link_libraries(next common ${CMAKE_THREAD_LIBS_INIT})
+
 add_executable(overlap overlap.c++)
 target_link_libraries(overlap common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 
