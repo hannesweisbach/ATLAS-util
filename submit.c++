@@ -24,7 +24,7 @@ static bool submit_to_init() {
 
 static bool submit_to_self() {
   using namespace std::chrono;
-  auto err = atlas::np::submit(std::this_thread::get_id(), 0, 1s,
+  auto err = atlas::np::submit(std::this_thread::get_id(), 1, 1s,
                                high_resolution_clock::now() + 2s);
   if (err) {
     std::cout << "Error submitting job to self: " << std::endl;
@@ -45,7 +45,7 @@ static bool submit_to_thread() {
   });
 
   auto err =
-      atlas::np::submit(t.get_id(), 0, 1s, high_resolution_clock::now() + 2s);
+      atlas::np::submit(t.get_id(), 2, 1s, high_resolution_clock::now() + 2s);
   run = false;
 
   if (err) {
@@ -64,7 +64,7 @@ static bool submit_to_nonexistent() {
   using namespace std::chrono;
   const pid_t nonexistent{65535};
   auto err =
-      atlas::submit(nonexistent, 0, 1s, high_resolution_clock::now() + 2s);
+      atlas::submit(nonexistent, 3, 1s, high_resolution_clock::now() + 2s);
 
   if (err) {
     std::cout << "Expected error when submitting job to non-existent TID: "
@@ -80,7 +80,7 @@ static bool submit_to_nonexistent() {
 static bool submit_invalid_exec() {
   using namespace std::chrono;
   struct timeval tv;
-  auto err = atlas::submit(gettid(), 0, nullptr, &tv);
+  auto err = atlas::submit(gettid(), 4, nullptr, &tv);
 
   if (err) {
     std::cout << "Expected error submitting job with invalid struct timeval "
@@ -97,7 +97,7 @@ static bool submit_invalid_exec() {
 static bool submit_invalid_deadline() {
   using namespace std::chrono;
   struct timeval tv;
-  auto err = atlas::submit(gettid(), 0, nullptr, &tv);
+  auto err = atlas::submit(gettid(), 5, &tv, nullptr);
 
   if (err) {
     std::cout << "Expected error submitting job with invalid struct timeval "
