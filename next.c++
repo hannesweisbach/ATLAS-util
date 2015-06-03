@@ -2,7 +2,8 @@
 #include <iostream>
 #include <chrono>
 #include <atomic>
-#include <future>
+
+#include <boost/program_options.hpp>
 
 #include "atlas.h"
 #include "common.h"
@@ -98,14 +99,41 @@ static bool wakeup(Workload &&w, Test &&t) {
  * sleeping threads are woken up by delivering SIGKILL.
  */
 
-int main() {
-  wakeup(recover_load, test_submit);
-  wakeup(atlas_load, test_submit);
-  wakeup(cfs_load, test_submit);
+int main(int argc, char *argv[]) {
+  namespace po = boost::program_options;
+  po::options_description desc("Interface tests for atlas::submit()");
+  desc.add_options()
+    ("help", "produce help message")
+    ("wakeup-atlas", "Submit job when blocking in next under ATLAS.")
+    ("wakeup-recover", "Submit job when blocking in next under Recover.")
+    ("wakeup-cfs", "Submit job when blocking in next under CFS.")
+    ("signal-atlas", "Send signal to thread blocked in next under ATLAS.")
+    ("signal-recover", "Send signal to thread blocked in next under Recover.")
+    ("signal-cfs", "Send signal to thread blocked in next under CFS.")
+    ("all", "Run all test.");
+
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+
+  if (vm.count("help")) {
+    std::cout << desc << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (vm.count("wakeup-atlas") || vm.count("all"))
+    wakeup(atlas_load, test_submit);
+  if (vm.count("wakeup-recover") || vm.count("all"))
+    wakeup(recover_load, test_submit);
+  if (vm.count("wakeup-cfs") || vm.count("all"))
+    wakeup(cfs_load, test_submit);
 
   auto test_sig = [](auto &&w) { test_signal(w, SIGCONT); };
-  wakeup(recover_load, test_sig);
-  wakeup(atlas_load, test_sig);
-  wakeup(cfs_load, test_sig);
+  if (vm.count("signal-atlas") || vm.count("all"))
+    wakeup(atlas_load, test_sig);
+  if (vm.count("signal-recover") || vm.count("all"))
+    wakeup(recover_load, test_sig);
+  if (vm.count("signal-atlas") || vm.count("all"))
+    wakeup(cfs_load, test_sig);
 }
 
