@@ -4,6 +4,8 @@
 #include <thread>
 #include <atomic>
 
+#include <boost/program_options.hpp>
+
 #include "atlas.h"
 #include "common.h"
 
@@ -107,11 +109,44 @@ static bool submit_invalid_deadline() {
   return !err;
 }
 
-int main() {
-  submit_to_init();
-  submit_to_self();
-  submit_to_thread();
-  submit_to_nonexistent();
-  submit_invalid_exec();
-  submit_invalid_deadline();
+int main(int argc, char *argv[]) {
+  namespace po = boost::program_options;
+  po::options_description desc("Interface tests for atlas::submit()");
+  desc.add_options()
+    ("help", "produce help message")
+    ("init", "Try to submit job to init (different process)")
+    ("self", "Try to submit job to self.")
+    ("thread", "Try to submit job to thread of the same process.")
+    ("nonexistent", "Try to submit job to non-existent PID.")
+    ("invalid-exec", "Try to submit job with nullptr for exec time.")
+    ("invalid-dead", "Try to submit job with nullptr for deadline.")
+    ("all", "Run all test.");
+
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+
+  if (vm.count("help")) {
+    std::cout << desc << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (vm.count("init") || vm.count("all"))
+    submit_to_init();
+
+  if (vm.count("self") || vm.count("all"))
+    submit_to_self();
+
+  if (vm.count("thread") || vm.count("all"))
+    submit_to_thread();
+
+  if (vm.count("nonexistent") || vm.count("all"))
+    submit_to_nonexistent();
+
+  if (vm.count("invalid-exec") || vm.count("all"))
+    submit_invalid_exec();
+
+  if (vm.count("invalid-dead") || vm.count("all"))
+    submit_invalid_deadline();
+
 }
