@@ -10,7 +10,7 @@
 #include <atomic>
 #include <tuple>
 
-#include <getopt.h>
+#include <boost/program_options.hpp>
 
 #include "atlas.h"
 #include "common.h"
@@ -79,98 +79,6 @@ std::vector<int64_t> cpu_time(std::chrono::duration<Rep, Period> exec_time,
   return exec_times;
 }
 
-[[noreturn]] void usage(bool error = true);
-void usage(bool error) {
-  int indent = static_cast<int>(strlen(program_invocation_name)) + 1;
-  std::cout << program_invocation_name
-            << " [--pin=<num>] | [--output <filename>] | "
-            << "[--threads <num>] | " << std::endl;
-  std::cout << std::setw(indent) << ""
-            << "[--samples=<num>] | [--help]" << std::endl;
-  std::cout << "  --help               Print this help." << std::endl;
-  std::cout << "  --output <filename>  Write measurements to the named file."
-            << std::endl;
-  std::cout << "                       Default is 'cputime.log'" << std::endl;
-  std::cout << "  --pin=[cpu]          Pin to a CPU (default is CPU 0)"
-            << std::endl;
-  std::cout << "  --samples <num>      Take <num> measurements. Default: 100."
-            << std::endl;
-  std::cout
-      << "  --threads <num>      Run with up to <num>-1 background threads."
-      << std::endl;
-  std::cout << "                       Default: 11 (10 Threads)." << std::endl;
-
-  if (error)
-    exit(EXIT_FAILURE);
-  else
-    exit(EXIT_SUCCESS);
-}
-
-std::tuple<int, std::string, size_t, size_t> options(int argc, char *argv[]);
-std::tuple<int, std::string, size_t, size_t> options(int argc, char *argv[]) {
-  int pinned = -1;
-  std::string fname("cputime.log");
-  size_t samples = 100;
-  size_t max_threads = 11;
-
-  while (1) {
-    int option_index = 0;
-    static struct option long_options[] = {
-        {"output", required_argument, nullptr, 'o'},
-        {"pin", optional_argument, nullptr, 'p'},
-        {"samples", required_argument, nullptr, 's'},
-        {"threads", required_argument, nullptr, 't'},
-        {"help", no_argument, nullptr, 'h'},
-    };
-
-    int c = getopt_long(argc, argv, "p::o:s:t:h", long_options, &option_index);
-    if (c == -1)
-      break;
-
-    std::cout << char(c) << std::endl;
-    switch (c) {
-    case 'h':
-      usage(false);
-    case 'p':
-      pinned = 0;
-
-      if (optarg) {
-        int cpu;
-        if (sscanf(optarg, "%i", &cpu) == 1) {
-          pinned = cpu;
-        } else {
-          std::cerr << "Argument of option '" << long_options[option_index].name
-                    << "' invalid: " << optarg << std::endl;
-          usage();
-        }
-      }
-      break;
-    case 'o':
-      fname = optarg;
-      break;
-    case 's':
-      if (sscanf(optarg, "%zu", &samples) != 1) {
-        std::cerr << "Argument of option '" << long_options[option_index].name
-                  << "' invalid: " << optarg << std::endl;
-        usage();
-      }
-      break;
-    case 't':
-      if (sscanf(optarg, "%zu", &max_threads) != 1) {
-        std::cerr << "Argument of option '" << long_options[option_index].name
-                  << "' invalid: " << optarg << std::endl;
-        usage();
-      }
-      break;
-    case '?':
-    default:
-      usage();
-    }
-  }
-
-  return std::make_tuple(pinned, fname, samples, max_threads);
-}
-
 int main(int argc, char *argv[]) {
   using namespace std::chrono;
   const auto exec_time = 33ms;
@@ -182,7 +90,28 @@ int main(int argc, char *argv[]) {
   size_t samples;
   size_t max_threads;
 
-  std::tie(pinned, fname, samples, max_threads) = options(argc, argv);
+  namespace po = boost::program_options;
+  po::options_description desc(
+      "Benchmark program measuring allocated CPU time.");
+  desc.add_options()
+    ("help", "produce help message")
+    ("threads", po::value(&max_threads)->default_value(11),
+      "Maximum number of background worker threads.")
+    ("samples", po::value(&samples)->default_value(100),
+      "Number of measurements for each number of background threads.")
+    ("output", po::value(&fname)->default_value("cputime.log"),
+      "Name of the file to write the results into.")
+    ("pin", po::value(&pinned)->default_value(-1),
+      "Whether to pin the ATLAS worker and if yes to which CPU.");
+
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+
+  if (vm.count("help")) {
+    std::cout << desc << std::endl;
+    return EXIT_FAILURE;
+  }
 
   for (size_t workers = 0; workers < max_threads; ++workers) {
     std::cout << "Measuring " << samples << " samples with " << workers
