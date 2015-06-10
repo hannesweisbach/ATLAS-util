@@ -22,13 +22,8 @@
  *      ---------------
  */
 static void overlap_single_task() {
+  using namespace std::chrono;
   std::thread task([] {
-    using namespace std::chrono;
-    auto tid = std::this_thread::get_id();
-    auto now = high_resolution_clock::now();
-    atlas::np::submit(tid, 1, 1s, now + 2.5s);
-    atlas::np::submit(tid, 2, 1s, now + 3s);
-
     auto start = cputime_clock::now();
     atlas::next();
     wait_for_deadline();
@@ -40,6 +35,10 @@ static void overlap_single_task() {
     std::cout << " Task got " << duration.count() << "ms of CPU time of 2000ms"
               << std::endl;
   });
+
+  auto now = high_resolution_clock::now();
+  atlas::np::submit(task.get_id(), 1, 1s, now + 2.5s);
+  atlas::np::submit(task.get_id(), 2, 1s, now + 3s);
 
   task.join();
 }
