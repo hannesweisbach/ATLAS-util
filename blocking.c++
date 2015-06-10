@@ -17,6 +17,8 @@
 #include <chrono>
 #include <iostream>
 
+#include <boost/program_options.hpp>
+
 #include "atlas.h"
 #include "common.h"
 
@@ -90,8 +92,30 @@ static void block_two_tasks_atlas() {
   task2.join();
 }
 
-int main() {
-  block_single_task_atlas();
-  block_two_tasks_atlas();
+int main(int argc, char *argv[]) {
+  namespace po = boost::program_options;
+  po::options_description desc("Test scheduling of blocking tasks");
+  desc.add_options()
+    ("help", "produce help message")
+    ("one", "A single ATLAS task has a blocking job.")
+    ("two", "From two ATLAS tasks one has a blocking job.")
+    ("all", "Run all tests.");
+
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+
+  if (vm.count("help")) {
+    std::cout << desc << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  if (vm.count("one") || vm.count("all")) {
+    block_single_task_atlas();
+  }
+
+  if (vm.count("two") || vm.count("all")) {
+    block_two_tasks_atlas();
+  }
 }
 
