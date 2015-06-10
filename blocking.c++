@@ -27,19 +27,21 @@ static void block_single_task_atlas() {
   using namespace std::chrono;
 
   std::thread task1([]() {
+    const auto sleep_time = 300ms;
+    const auto exec_time = 500ms;
     atlas::next();
 
     auto start = cputime_clock::now();
 
-    busy_for(0.5s);
+    busy_for(exec_time);
     /* block */
-    std::this_thread::sleep_for(0.3s);
+    std::this_thread::sleep_for(sleep_time);
 
     auto end = cputime_clock::now();
 
     auto ms = duration_cast<milliseconds>(end - start);
-    std::cout << "Task " << gettid() << " executed for " << ms.count() << "ms"
-              << std::endl;
+    std::cout << "Task " << gettid() << " executed for " << ms.count()
+              << "ms of " << exec_time.count() << "ms" << std::endl;
   });
 
   auto now = high_resolution_clock::now();
@@ -55,33 +57,42 @@ static void block_two_tasks_atlas() {
   using namespace std::chrono;
 
   std::thread task1([]() {
+    const auto exec_time = 300ms;
+    const auto sleep_time = 300ms;
     atlas::next();
 
     auto start = cputime_clock::now();
 
-    busy_for(0.5s);
+    busy_for(exec_time);
     /* block */
-    std::this_thread::sleep_for(0.3s);
+    std::this_thread::sleep_for(sleep_time);
 
     auto end = cputime_clock::now();
 
     auto ms = duration_cast<milliseconds>(end - start);
-    std::cout << "Task " << gettid() << " executed for " << ms.count() << "ms"
-              << std::endl;
+    std::cout << "Task " << gettid() << " executed for " << ms.count()
+              << "ms of " << exec_time.count() << "ms" << std::endl;
   });
 
   std::thread task2([]() {
+    const auto exec_time = 400ms;
     atlas::next();
 
     auto start = cputime_clock::now();
+    auto wall_start = high_resolution_clock::now();
     
-    busy_for(0.4s);
+    busy_for<cputime_clock>(exec_time);
     
     auto end = cputime_clock::now();
+    auto wall_end = high_resolution_clock::now();
 
     auto ms = duration_cast<milliseconds>(end - start);
-    std::cout << "Task " << gettid() << " executed for " << ms.count() << "ms"
-              << std::endl;
+    auto wall_ms = duration_cast<milliseconds>(wall_end - wall_start);
+
+    std::cout << "Task " << gettid() << " executed for " << ms.count()
+              << "ms of CPU time and " << wall_ms.count()
+              << "ms of wall clock time for " << exec_time.count()
+              << "ms of CPU-time" << std::endl;
   });
 
   auto now = high_resolution_clock::now();
