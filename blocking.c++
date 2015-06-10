@@ -103,6 +103,31 @@ static void block_two_tasks_atlas() {
   task2.join();
 }
 
+/* Check if waking up works if there is a job in ATLAS + Recover and a task
+ * blocks.  Both schedulers will find the task blocking and decrement
+ * nr_running, but only one scheduler will see the wakeup and increment
+ * nr_running. That scheduler will be ATLAS, because ATLAS pulls tasks if it
+ * sees that they are blocked to see their wakeups and increment nr_running.
+ */
+static void block_atlas_recover() {
+  using namespace std::chrono;
+  static int id = 0;
+  std::thread worker([] {
+    auto now = high_resolution_clock::now();
+    auto self = std::this_thread::get_id();
+    check_zero(atlas::np::submit(self, id++, 1s, now + 1.5s));
+    check_zero(atlas::np::submit(self, id++, 1s, now + 1.5s));
+    check_zero(atlas::next());
+
+    std::this_thread::sleep_for(0.5s);
+    wait_for_deadline();
+
+    check_zero(atlas::next());
+  });
+
+  worker.join();
+}
+
 int main(int argc, char *argv[]) {
   namespace po = boost::program_options;
   po::options_description desc("Test scheduling of blocking tasks");
@@ -110,6 +135,7 @@ int main(int argc, char *argv[]) {
     ("help", "produce help message")
     ("one", "A single ATLAS task has a blocking job.")
     ("two", "From two ATLAS tasks one has a blocking job.")
+    ("recover", "A single ATLAS task blocks in Recover.")
     ("all", "Run all tests.");
 
   po::variables_map vm;
@@ -127,6 +153,10 @@ int main(int argc, char *argv[]) {
 
   if (vm.count("two") || vm.count("all")) {
     block_two_tasks_atlas();
+  }
+
+  if (vm.count("recover") || vm.count("all")) {
+    block_atlas_recover();
   }
 }
 
