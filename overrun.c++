@@ -11,17 +11,19 @@ static std::atomic<size_t> id{0};
 
 static void overload() {
   using namespace std::chrono;
-  auto now = std::chrono::high_resolution_clock::now();
+  std::thread worker([] {
+    check_zero(atlas::next());
 
-  check_zero(atlas::np::submit(std::this_thread::get_id(), id++, 1s, now + 1.5s));
-  check_zero(atlas::np::submit(std::this_thread::get_id(), id++, 1s, now + 1.5s));
+    std::this_thread::sleep_for(0.5s);
+    wait_for_deadline();
 
-  check_zero(atlas::next());
+    check_zero(atlas::next());
+  });
 
-  std::this_thread::sleep_for(0.5s);
-  wait_for_deadline();
-
-  check_zero(atlas::next());
+  auto now = high_resolution_clock::now();
+  check_zero(atlas::np::submit(worker.get_id(), id++, 1s, now + 1.5s));
+  check_zero(atlas::np::submit(worker.get_id(), id++, 1s, now + 1.5s));
+  worker.join();
 }
 
 /* A task with a missed-deadline job, get's ATLAS for future jobs, if the
@@ -29,49 +31,57 @@ static void overload() {
  */
 static void overrun_cfs() {
   using namespace std::chrono;
-  auto now = std::chrono::high_resolution_clock::now();
+
+  std::thread worker([] {
+    /* Scheduler must be ATLAS */
+    check_zero(atlas::next());
+    std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
+
+    /* miss first deadline, scheduler should be CFS */
+    wait_for_deadline();
+    std::cout << "Scheduler: " << sched_getscheduler(0) << " (0)" << std::endl;
+    /* The task runs into its reservation for the second job - the task should
+     * be
+     * scheduled by ATLAS again.
+     */
+    busy_for(1.5s);
+    std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
+  });
+
+  auto now = high_resolution_clock::now();
   /* two jobs, 1s inbetween */
-  check_zero(atlas::np::submit(std::this_thread::get_id(), id++, 1s, now + 1.5s));
-  check_zero(atlas::np::submit(std::this_thread::get_id(), id++, 1s, now + 3.5s));
-
-  /* Scheduler must be ATLAS */
-  check_zero(atlas::next());
-  std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
-
-  /* miss first deadline, scheduler should be CFS */
-  wait_for_deadline();
-  std::cout << "Scheduler: " << sched_getscheduler(0) << " (0)" << std::endl;
-
-  /* The task runs into its reservation for the second job - the task should be
-   * scheduled by ATLAS again.
-   */
-  busy_for(1.5s);
-  std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
+  check_zero(atlas::np::submit(worker.get_id(), id++, 1s, now + 1.5s));
+  check_zero(atlas::np::submit(worker.get_id(), id++, 1s, now + 3.5s));
+  worker.join();
 }
 
 static void overrun_recover() {
   using namespace std::chrono;
-  auto now = std::chrono::high_resolution_clock::now();
+  auto now = high_resolution_clock::now();
+  std::thread worker([] {
+    /* Scheduler must be ATLAS */
+    check_zero(atlas::next());
+    std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
+
+    /* accumulate blocking time to get in Recover */
+    std::this_thread::sleep_for(1.5s);
+
+    /* miss first deadline, scheduler should be Recover */
+    wait_for_deadline();
+    std::cout << "Scheduler: " << sched_getscheduler(0) << " (8)" << std::endl;
+
+    /* The task runs into its reservation for the second job - the task should
+     * be
+     * scheduled by ATLAS again.
+     */
+    busy_for(1.5s);
+    std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
+  });
+
   /* two jobs, 1s inbetween */
-  check_zero(atlas::np::submit(std::this_thread::get_id(), id++, 2s, now + 2.5s));
-  check_zero(atlas::np::submit(std::this_thread::get_id(), id++, 2s, now + 5.5s));
-
-  /* Scheduler must be ATLAS */
-  check_zero(atlas::next());
-  std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
-
-  /* accumulate blocking time to get in Recover */
-  std::this_thread::sleep_for(1.5s);
-
-  /* miss first deadline, scheduler should be Recover */
-  wait_for_deadline();
-  std::cout << "Scheduler: " << sched_getscheduler(0) << " (8)" << std::endl;
-
-  /* The task runs into its reservation for the second job - the task should be
-   * scheduled by ATLAS again.
-   */
-  busy_for(1.5s);
-  std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
+  check_zero(atlas::np::submit(worker.get_id(), id++, 2s, now + 2.5s));
+  check_zero(atlas::np::submit(worker.get_id(), id++, 2s, now + 5.5s));
+  worker.join();
 }
 
 int main(int argc, char *argv[]) {
@@ -94,27 +104,20 @@ int main(int argc, char *argv[]) {
     return EXIT_FAILURE;
   }
 
-
-  if(vm.count("overload") || vm.count("all")) {
-    std::thread worker{overload};
-    worker.join();
+  if (vm.count("overload") || vm.count("all")) {
+    overload();
   }
 
   if (vm.count("cfs") || vm.count("all")) {
-    std::thread worker{overrun_cfs};
-    worker.join();
+    overrun_cfs();
   }
 
   if (vm.count("recover") || vm.count("all")) {
-    std::thread worker{overrun_recover};
-    worker.join();
+    overrun_recover();
   }
 
   if (vm.count("combined")) {
-    std::thread worker([] {
-      overrun_cfs();
-      overrun_recover();
-    });
-    worker.join();
+    overrun_cfs();
+    overrun_recover();
   }
 }
