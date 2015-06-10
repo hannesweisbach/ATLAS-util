@@ -21,14 +21,9 @@ enum class deadline {
   relative = 1,
 };
 
-static inline int submit(pid_t pid, struct timeval *exectime,
-                         struct timeval *deadline, enum deadline reference) {
-  if (syscall(SYS_atlas_submit, pid, exectime, deadline, reference) == 0)
-    return 0;
-  else {
-    std::cerr << "Error submit: " << strerror(errno) << std::endl;
-    return errno;
-  }
+static inline long submit(pid_t pid, struct timeval *exectime,
+                          struct timeval *deadline, enum deadline reference) {
+  return syscall(SYS_atlas_submit, pid, exectime, deadline, reference);
 }
 
 template <class Rep, class Period>
