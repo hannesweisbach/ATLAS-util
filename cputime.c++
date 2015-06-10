@@ -81,8 +81,8 @@ std::vector<int64_t> cpu_time(std::chrono::duration<Rep, Period> exec_time,
 
 int main(int argc, char *argv[]) {
   using namespace std::chrono;
-  const auto exec_time = 33ms;
-  const auto period = 2 * exec_time;
+  const auto exec_time = 500ms;
+  const auto period = 100ms + exec_time;
   std::vector<std::vector<int64_t>> times;
 
   int pinned;
