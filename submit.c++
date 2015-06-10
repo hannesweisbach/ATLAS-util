@@ -3,6 +3,7 @@
 #include <cerrno>
 #include <thread>
 #include <atomic>
+#include <fstream>
 
 #include <boost/program_options.hpp>
 
@@ -60,18 +61,43 @@ static bool submit_to_thread() {
   return !err;
 }
 
-static bool submit_to_nonexistent() {
+static bool submit_to_nonexistent_pid() {
   using namespace std::chrono;
-  const pid_t nonexistent{65535};
+  pid_t nonexistent;
+
+  {
+    std::fstream max_pid("/proc/sys/kernel/pid_max", std::ios::in);
+    max_pid >> nonexistent;
+    ++nonexistent;
+  }
+
   auto err =
       atlas::submit(nonexistent, 3, 1s, high_resolution_clock::now() + 2s);
 
   if (err) {
     std::cout << "Expected error when submitting job to non-existent TID: "
+              << nonexistent << std::endl;
+    std::cout << "\t" << strerror(errno) << std::endl;
+  } else {
+    std::cout << "Submitting job to non-existent TID " << nonexistent
+              << " succeeded" << std::endl;
+  }
+
+  return errno == ESRCH;
+}
+
+static bool submit_to_negative_pid() {
+  using namespace std::chrono;
+  const pid_t nonexistent{-1};
+  auto err =
+      atlas::submit(nonexistent, 3, 1s, high_resolution_clock::now() + 2s);
+
+  if (err) {
+    std::cout << "Expected error when submitting job to non-existent TID -1: "
               << std::endl;
     std::cout << "\t" << strerror(errno) << std::endl;
   } else {
-    std::cout << "Submitting job to non-existent TID succeeded" << std::endl;
+    std::cout << "Submitting job to non-existent TID -1 succeeded" << std::endl;
   }
 
   return errno == ESRCH;
@@ -117,7 +143,8 @@ int main(int argc, char *argv[]) {
     ("init", "Try to submit job to init (different process)")
     ("self", "Try to submit job to self.")
     ("thread", "Try to submit job to thread of the same process.")
-    ("nonexistent", "Try to submit job to non-existent PID.")
+    ("nonexistent", "Try to submit job to non-existent PID (max PID + 1).")
+    ("negative", "Try to submit job to negative PID (-1).")
     ("invalid-exec", "Try to submit job with nullptr for exec time.")
     ("invalid-dead", "Try to submit job with nullptr for deadline.")
     ("all", "Run all test.");
@@ -141,7 +168,10 @@ int main(int argc, char *argv[]) {
     submit_to_thread();
 
   if (vm.count("nonexistent") || vm.count("all"))
-    submit_to_nonexistent();
+    submit_to_nonexistent_pid();
+
+  if (vm.count("negative") || vm.count("all"))
+    submit_to_negative_pid();
 
   if (vm.count("invalid-exec") || vm.count("all"))
     submit_invalid_exec();
