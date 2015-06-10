@@ -50,8 +50,9 @@ struct timeval to_timeval(const std::chrono::time_point<Clock, Duration> &t) {
 }
 
 template <class Rep1, class Period1, class Rep2, class Period2>
-int submit(pid_t tid, std::chrono::duration<Rep1, Period1> exec_time,
-           std::chrono::duration<Rep2, Period2> deadline) {
+decltype(auto) submit(pid_t tid,
+                      std::chrono::duration<Rep1, Period1> exec_time,
+                      std::chrono::duration<Rep2, Period2> deadline) {
   struct timeval tv_exectime = to_timeval(exec_time);
   struct timeval tv_deadline = to_timeval(deadline);
 
@@ -59,8 +60,9 @@ int submit(pid_t tid, std::chrono::duration<Rep1, Period1> exec_time,
 }
 
 template <class Rep, class Period, class Clock, class Duration>
-int submit(pid_t tid, std::chrono::duration<Rep, Period> exec_time,
-           std::chrono::time_point<Clock, Duration> deadline) {
+decltype(auto) submit(pid_t tid,
+                      std::chrono::duration<Rep, Period> exec_time,
+                      std::chrono::time_point<Clock, Duration> deadline) {
   struct timeval tv_exectime = to_timeval(exec_time);
   struct timeval tv_deadline = to_timeval(deadline);
 
