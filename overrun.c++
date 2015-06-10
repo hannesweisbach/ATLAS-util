@@ -1,6 +1,7 @@
 #include <thread>
 #include <chrono>
 #include <atomic>
+#include <fstream>
 
 #include <boost/program_options.hpp>
 
@@ -31,6 +32,16 @@ static void overload() {
  */
 static void overrun_cfs() {
   using namespace std::chrono;
+
+  int prerunning;
+  std::fstream sysctl("/proc/sys/kernel/sched_atlas_advance_in_cfs",
+                      std::ios::in);
+  sysctl >> prerunning;
+  if (!prerunning) {
+    std::cout << "CFS test skipped because prerunning is disabled."
+              << std::endl;
+    return;
+  }
 
   std::thread worker([] {
     /* Scheduler must be ATLAS */
