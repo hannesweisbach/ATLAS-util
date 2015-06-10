@@ -21,9 +21,9 @@ enum class deadline {
   relative = 1,
 };
 
-static inline long submit(pid_t pid, struct timeval *exectime,
+static inline long submit(pid_t pid, uint64_t id, struct timeval *exectime,
                           struct timeval *deadline, enum deadline reference) {
-  return syscall(SYS_atlas_submit, pid, exectime, deadline, reference);
+  return syscall(SYS_atlas_submit, pid, id, exectime, deadline, reference);
 }
 
 template <class Rep, class Period>
@@ -50,23 +50,23 @@ struct timeval to_timeval(const std::chrono::time_point<Clock, Duration> &t) {
 }
 
 template <class Rep1, class Period1, class Rep2, class Period2>
-decltype(auto) submit(pid_t tid,
+decltype(auto) submit(pid_t tid, uint64_t id,
                       std::chrono::duration<Rep1, Period1> exec_time,
                       std::chrono::duration<Rep2, Period2> deadline) {
   struct timeval tv_exectime = to_timeval(exec_time);
   struct timeval tv_deadline = to_timeval(deadline);
 
-  return submit(tid, &tv_exectime, &tv_deadline, deadline::relative);
+  return submit(tid, id, &tv_exectime, &tv_deadline, deadline::relative);
 }
 
 template <class Rep, class Period, class Clock, class Duration>
-decltype(auto) submit(pid_t tid,
+decltype(auto) submit(pid_t tid, uint64_t id,
                       std::chrono::duration<Rep, Period> exec_time,
                       std::chrono::time_point<Clock, Duration> deadline) {
   struct timeval tv_exectime = to_timeval(exec_time);
   struct timeval tv_deadline = to_timeval(deadline);
 
-  return submit(tid, &tv_exectime, &tv_deadline, deadline::absolute);
+  return submit(tid, id, &tv_exectime, &tv_deadline, deadline::absolute);
 }
 
 static inline decltype(auto) next(void) { return syscall(SYS_atlas_next); }

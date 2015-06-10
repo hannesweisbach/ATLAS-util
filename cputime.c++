@@ -60,7 +60,8 @@ std::vector<int64_t> cpu_time(std::chrono::duration<Rep, Period> exec_time,
 
     auto begin = high_resolution_clock::now();
     auto deadline = begin + period;
-    check_zero(atlas::submit(tid, exec_time, deadline), "Submit");
+    uint64_t id = background_threads * count * 2 + i;
+    check_zero(atlas::submit(tid, id, exec_time, deadline), "Submit");
 
     atlas::next();
     {
