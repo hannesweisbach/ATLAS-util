@@ -21,7 +21,7 @@
 #include "common.h"
 
 /* An ATLAS task blocks and no other ATLAS tasks are in the system */
-static void test1() {
+static void block_single_task_atlas() {
   using namespace std::chrono;
 
   std::thread task1([]() {
@@ -49,7 +49,7 @@ static void test1() {
  * An ATLAS task blocks and the computation time should be handed to the next
  * ready ATLAS task.
  */
-static void test2() {
+static void block_two_tasks_atlas() {
   using namespace std::chrono;
 
   std::thread task1([]() {
@@ -91,7 +91,7 @@ static void test2() {
 }
 
 int main() {
-  test1();
-  test2();
+  block_single_task_atlas();
+  block_two_tasks_atlas();
 }
 
