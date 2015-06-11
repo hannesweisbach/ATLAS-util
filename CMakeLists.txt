@@ -30,7 +30,7 @@ add_executable(zero_exec zero_exec.c++)
 target_link_libraries(zero_exec common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 
 add_executable(producer-consumer producer-consumer.c++)
-target_link_libraries(producer-consumer common ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(producer-consumer common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 
 add_executable(fork fork.c++)
 target_link_libraries(fork common)

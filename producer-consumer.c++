@@ -11,6 +11,8 @@
 
 #include <signal.h>
 
+#include <boost/program_options.hpp>
+
 #include "atlas.h"
 #include "common.h"
 
@@ -170,12 +172,40 @@ static void consumer(client_state &state, std::atomic_bool &running,
   }
 }
 
-int main() {
-  bool continuous = true;
-  bool miss = false;
-  size_t num_consumers = 3;
-  size_t num_producers = 10;
-  size_t samples = 1000;
+int main(int argc, char *argv[]) {
+  bool continuous;
+  bool miss;
+  size_t num_consumers;
+  size_t num_producers;
+  size_t samples;
+
+  namespace po = boost::program_options;
+  po::options_description desc("Producer-consumer test suite.");
+  auto o = desc.add_options();
+  o("help", "produce help message");
+  o("miss", po::value(&miss)->default_value(false)->implicit_value(true),
+    "Consumer miss occasionally a deadline.");
+  o("continuous",
+    po::value(&continuous)->default_value(false)->implicit_value(true),
+    "Run the test suite continously.");
+  o("num-producers", po::value(&num_producers)->default_value(1),
+    "The number of producer threads");
+  o("num-consumers", po::value(&num_consumers)->default_value(1),
+    "The number of consumer threads (default: 1)");
+  o("jobs", po::value(&samples)->default_value(100),
+    "Number of jobs per producer. In the continuous case, the maximum number"
+    "of unfinished jobs per consumer.");
+
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+
+  if (vm.count("help")) {
+    std::cout << desc << std::endl;
+    return EXIT_FAILURE;
+  }
+
+  set_signal_handler(SIGTERM, sig_term);
 
   std::vector<std::unique_ptr<std::thread>> producers;
   std::vector<std::unique_ptr<std::thread>> consumers;
@@ -190,8 +220,6 @@ int main() {
     state.initialized = true;
     state.id = consumer_id++;
   }
-
-  set_signal_handler(SIGTERM, sig_term);
 
   if (continuous) {
     for (size_t producer = 0; producer < num_producers; ++producer) {
