@@ -14,19 +14,6 @@
 #include "atlas.h"
 #include "common.h"
 
-class barrier {
-  mutable std::atomic<size_t> count;
-
-public:
-  barrier(size_t size) : count(size) {}
-  void reset(const size_t size) { count.store(size); }
-  void wait() const {
-    --count;
-    while (count)
-      ;
-  }
-};
-
 static std::atomic_bool running__{true};
 
 static void sig_term(int, siginfo_t *, void *) { running__ = false; }
@@ -44,7 +31,7 @@ struct client_state {
 namespace continuous {
 /* producer and consumer continuously submitting and processing work */
 static void producer(const std::vector<std::unique_ptr<std::thread>> &consumers,
-                     const barrier &barrier, const size_t samples,
+                     const size_t samples,
                      const std::pair<size_t, size_t> producer_info,
                      const client_state *const queue,
                      std::atomic_bool &running) {
@@ -62,8 +49,10 @@ static void producer(const std::vector<std::unique_ptr<std::thread>> &consumers,
     set_affinity({0});
   }
 
-  barrier.wait();
-
+  std::for_each(queue, queue + num_consumers, [](const auto &client) {
+    while (!client.initialized)
+      std::this_thread::yield();
+  });
   /* Note: 4-core execution time + deadline: 1s */
 
   for (size_t sample = 0; running; ++sample) {
@@ -84,8 +73,8 @@ static void producer(const std::vector<std::unique_ptr<std::thread>> &consumers,
 
 namespace miss {
 /* producer and consumer, where consumer sometimes misses deadlines */
-static void producer(std::thread::id consumer, const barrier &barrier,
-                     std::atomic_bool &running, const client_state &client) {
+static void producer(std::thread::id consumer, std::atomic_bool &running,
+                     const client_state &client) {
   using namespace std::chrono;
 
   uint64_t id = 0;
@@ -99,7 +88,8 @@ static void producer(std::thread::id consumer, const barrier &barrier,
     set_affinity({0});
   }
 
-  barrier.wait();
+  while (!client.initialized)
+    std::this_thread::yield();
 
   std::this_thread::sleep_for(1s);
 
@@ -122,7 +112,7 @@ static void producer(std::thread::id consumer, const barrier &barrier,
 }
 
 static void producer(const std::vector<std::unique_ptr<std::thread>> &consumers,
-                     const barrier &barrier, const size_t samples,
+                     const client_state *const queue, const size_t samples,
                      const std::pair<size_t, size_t> producer_info) {
   using namespace std::chrono;
 
@@ -138,7 +128,10 @@ static void producer(const std::vector<std::unique_ptr<std::thread>> &consumers,
     set_affinity({0});
   }
 
-  barrier.wait();
+  std::for_each(queue, queue + num_consumers, [](const auto &client) {
+    while (!client.initialized)
+      std::this_thread::yield();
+  });
 
   /* Note: 4-core execution time + deadline: 1ms */
   consumer_id = 0;
@@ -162,15 +155,15 @@ static void producer(const std::vector<std::unique_ptr<std::thread>> &consumers,
   }
 }
 
-static void consumer(const barrier &barrier, const client_state &state,
-                     std::atomic_bool &running,
+static void consumer(client_state &state, std::atomic_bool &running,
                      const bool enable_deadline_misses = false) {
   std::mt19937_64 generator;
   std::uniform_int_distribution<bool> miss;
   unsigned nr_cpus = std::thread::hardware_concurrency();
   set_affinity(nr_cpus - 1);
 
-  barrier.wait();
+  state.tid = std::this_thread::get_id();
+  state.initialized = true;
 
   for (; running || state.samples;) {
     state.in_next = true;
@@ -204,57 +197,51 @@ int main() {
   std::vector<std::unique_ptr<std::thread>> producers;
   std::vector<std::unique_ptr<std::thread>> consumers;
 
-  barrier barrier(num_consumers + num_producers);
-
   set_signal_handler(SIGTERM, sig_term);
 
   if (continuous) {
     for (size_t consumer = 0; consumer < num_consumers; ++consumer) {
-      consumers.emplace_back(std::make_unique<std::thread>(
-          [&barrier, &state = queue[consumer] ]() {
-            ::consumer(barrier, state, running__);
+      consumers.emplace_back(
+          std::make_unique<std::thread>([&state = queue[consumer]]() {
+            ::consumer(state, running__);
           }));
     }
 
     for (size_t producer = 0; producer < num_producers; ++producer) {
       producers.push_back(std::make_unique<std::thread>([
         &consumers,
-        &barrier,
         samples,
         producer_info = std::make_pair(producer, num_producers),
         &queue
       ]() {
-        continuous::producer(consumers, barrier, samples, producer_info, queue.get(),
+        continuous::producer(consumers, samples, producer_info, queue.get(),
                              running__);
       }));
     }
   } else if (miss) {
-    barrier.reset(2);
-    consumers.emplace_back(
-        std::make_unique<std::thread>([&barrier, &state = queue[0] ]() {
-          ::consumer(barrier, state, running__, true);
-        }));
+    consumers.emplace_back(std::make_unique<std::thread>([&state = queue[0]]() {
+      ::consumer(state, running__, true);
+    }));
 
-    producers.push_back(std::make_unique<std::thread>([
-      consumer = consumers.back()->get_id(),
-      &barrier,
-          &state = queue[0]
-    ]() { miss::producer(consumer, barrier, running__, state); }));
+    producers.push_back(std::make_unique<std::thread>(
+        [ consumer = consumers.back()->get_id(), &state = queue[0] ]() {
+          miss::producer(consumer, running__, state);
+        }));
   } else {
     for (size_t consumer = 0; consumer < num_consumers; ++consumer) {
-      consumers.emplace_back(std::make_unique<std::thread>(
-          [&barrier, &samples = queue[consumer] ]() {
-            ::consumer(barrier, samples, running__);
+      consumers.emplace_back(
+          std::make_unique<std::thread>([&samples = queue[consumer]]() {
+            ::consumer(samples, running__);
           }));
     }
 
     for (size_t producer = 0; producer < num_producers; ++producer) {
       producers.push_back(std::make_unique<std::thread>([
         &consumers,
-        &barrier,
+        clients = queue.get(),
         samples,
         producer_info = std::make_pair(producer, num_producers)
-      ]() { ::producer(consumers, barrier, samples, producer_info); }));
+      ]() { ::producer(consumers, clients, samples, producer_info); }));
     }
   }
 
