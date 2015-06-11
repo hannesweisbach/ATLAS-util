@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
     wakeup(atlas_load, test_sig);
   if (vm.count("signal-recover") || vm.count("all"))
     wakeup(recover_load, test_sig);
-  if (vm.count("signal-atlas") || vm.count("all"))
+  if (vm.count("signal-cfs") || vm.count("all"))
     wakeup(cfs_load, test_sig);
 }
 
