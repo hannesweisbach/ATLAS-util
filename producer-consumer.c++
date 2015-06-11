@@ -187,26 +187,23 @@ int main() {
   size_t num_producers = 10;
   size_t samples = 1000;
 
+  std::vector<std::unique_ptr<std::thread>> producers;
+  std::vector<std::unique_ptr<std::thread>> consumers;
+
   auto queue = std::make_unique<client_state[]>(num_consumers);
   for (size_t consumer = 0; consumer < num_consumers; ++consumer) {
     queue[consumer].samples = 0;
     queue[consumer].in_next = false;
     queue[consumer].initialized = false;
+    consumers.emplace_back(
+        std::make_unique<std::thread>([&state = queue[consumer]]() {
+          ::consumer(state, running__);
+        }));
   }
-
-  std::vector<std::unique_ptr<std::thread>> producers;
-  std::vector<std::unique_ptr<std::thread>> consumers;
 
   set_signal_handler(SIGTERM, sig_term);
 
   if (continuous) {
-    for (size_t consumer = 0; consumer < num_consumers; ++consumer) {
-      consumers.emplace_back(
-          std::make_unique<std::thread>([&state = queue[consumer]]() {
-            ::consumer(state, running__);
-          }));
-    }
-
     for (size_t producer = 0; producer < num_producers; ++producer) {
       producers.push_back(std::make_unique<std::thread>([
         &consumers,
@@ -219,22 +216,11 @@ int main() {
       }));
     }
   } else if (miss) {
-    consumers.emplace_back(std::make_unique<std::thread>([&state = queue[0]]() {
-      ::consumer(state, running__, true);
-    }));
-
     producers.push_back(std::make_unique<std::thread>(
         [ consumer = consumers.back()->get_id(), &state = queue[0] ]() {
           miss::producer(consumer, running__, state);
         }));
   } else {
-    for (size_t consumer = 0; consumer < num_consumers; ++consumer) {
-      consumers.emplace_back(
-          std::make_unique<std::thread>([&samples = queue[consumer]]() {
-            ::consumer(samples, running__);
-          }));
-    }
-
     for (size_t producer = 0; producer < num_producers; ++producer) {
       producers.push_back(std::make_unique<std::thread>([
         &consumers,
