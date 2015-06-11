@@ -29,22 +29,19 @@ void usage(bool error) {
     exit(EXIT_SUCCESS);
 }
 
-std::tuple<size_t, int, bool> options(int argc, char *argv[]);
-std::tuple<size_t, int, bool> options(int argc, char *argv[]) {
+static std::tuple<size_t, int> options(int argc, char *argv[]) {
   int pinned = -1;
   size_t samples = 100;
-  bool thread = false;
   
   while (1) {
     int option_index = 0;
     static struct option long_options[] = {
         {"pin", optional_argument, nullptr, 'p'},
         {"samples", required_argument, nullptr, 's'},
-        {"thread", required_argument, nullptr, 't'},
         {"help", no_argument, nullptr, 'h'},
     };
 
-    int c = getopt_long(argc, argv, "p:s:th", long_options, &option_index);
+    int c = getopt_long(argc, argv, "p:s:h", long_options, &option_index);
     if (c == -1)
       break;
 
@@ -72,16 +69,13 @@ std::tuple<size_t, int, bool> options(int argc, char *argv[]) {
         usage();
       }
       break;
-    case 't':
-      thread = true;
-      break;
     case '?':
     default:
       usage();
     }
   }
 
-  return std::make_tuple(samples, pinned, thread);
+  return std::make_tuple(samples, pinned);
 }
 
 int main(int argc, char *argv[]) {
@@ -92,11 +86,10 @@ int main(int argc, char *argv[]) {
   
   int pinned_to;
   size_t num;
-  bool extra_thread;
 
-  std::tie(num, pinned_to, extra_thread) = options(argc, argv);
+  std::tie(num, pinned_to) = options(argc, argv);
 
-  auto func = [&tid, &run, pinned_to, num]() {
+  consumer = std::thread([&tid, &run, pinned_to, num]() {
     if (pinned_to >= 0)
       set_affinity(static_cast<unsigned>(pinned_to));
     tid = gettid();
@@ -104,21 +97,16 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < num; ++i) {
       check_zero(atlas::next());
     }
-  };
+  });
 
-  if (extra_thread) {
-    consumer = std::thread(func);
-    while (!run)
-      ;
-  }
+  while (!run)
+    ;
 
   for (size_t i = 0; i < num; ++i) {
     check_zero(atlas::submit(tid, i, 50ms, 10s + i * 1s));
   }
 
-  if (extra_thread) {
-    consumer.join();
-  } else {
-    func();
-  }
+  std::cout << num << " jobs submitted to worker thread" << std::endl;
+
+  consumer.join();
 }
