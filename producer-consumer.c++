@@ -31,12 +31,22 @@ static std::atomic_bool running__{true};
 
 static void sig_term(int, siginfo_t *, void *) { running__ = false; }
 
+struct client_state {
+  mutable std::atomic<size_t> samples{0};
+  mutable std::atomic_bool in_next{false};
+  std::atomic_bool initialized{false};
+  std::thread::id tid;
+
+
+  bool is_blocked() const { return samples == 0 && in_next; }
+};
+
 namespace continuous {
 /* producer and consumer continuously submitting and processing work */
 static void producer(const std::vector<std::unique_ptr<std::thread>> &consumers,
                      const barrier &barrier, const size_t samples,
                      const std::pair<size_t, size_t> producer_info,
-                     std::unique_ptr<std::atomic<size_t>[]> &queue,
+                     const client_state *const queue,
                      std::atomic_bool &running) {
   using namespace std::chrono;
 
@@ -59,10 +69,10 @@ static void producer(const std::vector<std::unique_ptr<std::thread>> &consumers,
   for (size_t sample = 0; running; ++sample) {
     consumer_id = 0;
     for (const auto &consumer : consumers) {
-      if (queue[consumer_id] < samples) {
+      if (queue[consumer_id].samples < samples) {
         uint64_t id = num_producers * num_consumers * sample +
                       num_consumers * producer_id + consumer_id;
-        ++queue[consumer_id];
+        ++queue[consumer_id].samples;
         check_zero(atlas::np::submit(consumer->get_id(), id, 5000ms, 5000ms));
       }
       ++consumer_id;
@@ -70,28 +80,12 @@ static void producer(const std::vector<std::unique_ptr<std::thread>> &consumers,
   }
 }
 
-static void consumer(const barrier &barrier, std::atomic<size_t> &samples,
-                     std::atomic_bool &running) {
-  unsigned nr_cpus = std::thread::hardware_concurrency();
-  set_affinity(nr_cpus - 1);
-
-  barrier.wait();
-
-  for (; running || samples;) {
-    check_zero(atlas::next());
-    --samples;
-    /* do some work */
-    for (size_t i = 0; i < 1000 * 1000; ++i)
-      __asm__ __volatile__("nop");
-  }
-}
 }
 
 namespace miss {
 /* producer and consumer, where consumer sometimes misses deadlines */
 static void producer(std::thread::id consumer, const barrier &barrier,
-                     std::atomic_bool &running, std::atomic_bool &in_next,
-                     std::atomic<size_t> &samples) {
+                     std::atomic_bool &running, const client_state &client) {
   using namespace std::chrono;
 
   uint64_t id = 0;
@@ -111,43 +105,20 @@ static void producer(std::thread::id consumer, const barrier &barrier,
 
   for (; running;) {
     if (blocking(generator)) {
-      while (samples || !in_next)
+      while (!client.is_blocked())
         ;
       std::this_thread::sleep_for(1ms);
-      ++samples;
+      ++client.samples;
       atlas::np::submit(consumer, id++, 90ms, 100ms);
     } else {
-      while (samples >= 10)
+      while (client.samples >= 10)
         ;
-      ++samples;
+      ++client.samples;
       atlas::np::submit(consumer, id++, 90ms, 100ms);
     }
   }
 }
 
-static void consumer(const barrier &barrier, std::atomic_bool &running,
-                     std::atomic_bool &in_next, std::atomic<size_t> &samples) {
-  std::mt19937_64 generator;
-  std::uniform_int_distribution<bool> miss;
-  unsigned nr_cpus = std::thread::hardware_concurrency();
-  set_affinity(nr_cpus - 1);
-
-  barrier.wait();
-
-  for (; running || samples;) {
-    in_next = true;
-    check_zero(atlas::next());
-    --samples;
-    in_next = false;
-
-    if (miss(generator)) {
-      wait_for_deadline();
-    } else {
-      for (size_t i = 0; i < 1000 * 1000; ++i)
-        __asm__ __volatile__("nop");
-    }
-  }
-}
 }
 
 static void producer(const std::vector<std::unique_ptr<std::thread>> &consumers,
@@ -191,29 +162,44 @@ static void producer(const std::vector<std::unique_ptr<std::thread>> &consumers,
   }
 }
 
-static void consumer(const barrier &barrier, const size_t samples) {
+static void consumer(const barrier &barrier, const client_state &state,
+                     std::atomic_bool &running,
+                     const bool enable_deadline_misses = false) {
+  std::mt19937_64 generator;
+  std::uniform_int_distribution<bool> miss;
   unsigned nr_cpus = std::thread::hardware_concurrency();
   set_affinity(nr_cpus - 1);
 
   barrier.wait();
 
-  for (size_t sample = 0; sample < samples; ++sample) {
+  for (; running || state.samples;) {
+    state.in_next = true;
     check_zero(atlas::next());
-    /* do some work */
-    for (size_t i = 0; i < 1000 * 1000; ++i)
-      __asm__ __volatile__("nop");
+    --state.samples;
+    state.in_next = false;
+
+    if (enable_deadline_misses && miss(generator)) {
+      wait_for_deadline();
+    } else {
+      for (size_t i = 0; i < 1000 * 1000; ++i)
+        __asm__ __volatile__("nop");
+    }
   }
 }
 
 int main() {
-  bool continuous = false;
-  bool miss = true;
+  bool continuous = true;
+  bool miss = false;
   size_t num_consumers = 3;
   size_t num_producers = 10;
   size_t samples = 1000;
 
-  auto queue = std::make_unique<std::atomic<size_t>[]>(num_consumers);
-  std::atomic_bool in_next;
+  auto queue = std::make_unique<client_state[]>(num_consumers);
+  for (size_t consumer = 0; consumer < num_consumers; ++consumer) {
+    queue[consumer].samples = 0;
+    queue[consumer].in_next = false;
+    queue[consumer].initialized = false;
+  }
 
   std::vector<std::unique_ptr<std::thread>> producers;
   std::vector<std::unique_ptr<std::thread>> consumers;
@@ -224,11 +210,10 @@ int main() {
 
   if (continuous) {
     for (size_t consumer = 0; consumer < num_consumers; ++consumer) {
-      queue[consumer].store(0);
-      consumers.emplace_back(std::make_unique<
-          std::thread>([&barrier, &samples = queue[consumer] ]() {
-        continuous::consumer(barrier, samples, running__);
-      }));
+      consumers.emplace_back(std::make_unique<std::thread>(
+          [&barrier, &state = queue[consumer] ]() {
+            ::consumer(barrier, state, running__);
+          }));
     }
 
     for (size_t producer = 0; producer < num_producers; ++producer) {
@@ -239,31 +224,29 @@ int main() {
         producer_info = std::make_pair(producer, num_producers),
         &queue
       ]() {
-        continuous::producer(consumers, barrier, samples, producer_info, queue,
+        continuous::producer(consumers, barrier, samples, producer_info, queue.get(),
                              running__);
       }));
     }
   } else if (miss) {
     barrier.reset(2);
-    queue[0].store(0);
-    consumers.emplace_back(std::make_unique<
-        std::thread>([&barrier, &samples = queue[0], &in_next ]() {
-      miss::consumer(barrier, running__, in_next, samples);
-    }));
+    consumers.emplace_back(
+        std::make_unique<std::thread>([&barrier, &state = queue[0] ]() {
+          ::consumer(barrier, state, running__, true);
+        }));
 
     producers.push_back(std::make_unique<std::thread>([
       consumer = consumers.back()->get_id(),
       &barrier,
-      &in_next,
-          &samples = queue[0]
-    ]() { miss::producer(consumer, barrier, running__, in_next, samples); }));
+          &state = queue[0]
+    ]() { miss::producer(consumer, barrier, running__, state); }));
   } else {
-    std::generate_n(
-        std::back_inserter(consumers), num_consumers,
-        [&barrier, samples = samples * num_producers ]() {
-          return std::make_unique<std::thread>(
-              [&barrier, samples]() { consumer(barrier, samples); });
-        });
+    for (size_t consumer = 0; consumer < num_consumers; ++consumer) {
+      consumers.emplace_back(std::make_unique<std::thread>(
+          [&barrier, &samples = queue[consumer] ]() {
+            ::consumer(barrier, samples, running__);
+          }));
+    }
 
     for (size_t producer = 0; producer < num_producers; ++producer) {
       producers.push_back(std::make_unique<std::thread>([
