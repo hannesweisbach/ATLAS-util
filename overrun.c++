@@ -79,7 +79,7 @@ static void overrun_recover() {
 
     /* miss first deadline, scheduler should be Recover */
     wait_for_deadline();
-    std::cout << "Scheduler: " << sched_getscheduler(0) << " (8)" << std::endl;
+    std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
 
     /* The task runs into its reservation for the second job - the task should
      * be
