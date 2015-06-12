@@ -15,9 +15,11 @@
 #if defined(__x86_64__)
 #define SYS_atlas_next 323
 #define SYS_atlas_submit 324
+#define SYS_atlas_remove 326
 #elif defined(__i386__)
 #define SYS_atlas_next 359
 #define SYS_atlas_submit 360
+#define SYS_atlas_remove 362
 #else
 #error Architecture not supported.
 #endif
@@ -136,4 +138,18 @@ static inline decltype(auto) next(void) {
   return ret;
 }
 
+static inline decltype(auto) remove(pid_t tid, const uint64_t id) {
+  return syscall(SYS_atlas_remove, tid, id);
+}
+
+namespace np {
+
+static inline decltype(auto) remove(const std::thread::id tid, uint64_t id) {
+  return atlas::remove(from(tid), id);
+}
+
+static inline decltype(auto) remove(const pthread_t tid, uint64_t id) {
+  return atlas::remove(from(tid), id);
+}
+}
 }
