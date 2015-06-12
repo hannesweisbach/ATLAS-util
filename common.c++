@@ -2,6 +2,7 @@
 #include <sys/syscall.h>
 #include <sched.h>
 #include <iostream>
+#include <fstream>
 
 #include <cerrno>
 #include <cstring>
@@ -39,6 +40,12 @@ struct timespec operator-(const struct timespec &lhs,
 }
 
 pid_t gettid() { return static_cast<pid_t>(syscall(SYS_gettid)); }
+pid_t invalid_tid() {
+  pid_t nonexistent;
+  std::fstream max_pid("/proc/sys/kernel/pid_max", std::ios::in);
+  max_pid >> nonexistent;
+  return ++nonexistent;
+}
 
 void set_affinity(std::initializer_list<unsigned> cpus, pid_t tid) {
   cpu_set_t cpu_set;

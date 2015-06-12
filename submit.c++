@@ -3,7 +3,6 @@
 #include <cerrno>
 #include <thread>
 #include <atomic>
-#include <fstream>
 
 #include <boost/program_options.hpp>
 
@@ -63,13 +62,7 @@ static bool submit_to_thread() {
 
 static bool submit_to_nonexistent_pid() {
   using namespace std::chrono;
-  pid_t nonexistent;
-
-  {
-    std::fstream max_pid("/proc/sys/kernel/pid_max", std::ios::in);
-    max_pid >> nonexistent;
-    ++nonexistent;
-  }
+  pid_t nonexistent = invalid_tid();
 
   auto err =
       atlas::submit(nonexistent, 3, 1s, high_resolution_clock::now() + 2s);

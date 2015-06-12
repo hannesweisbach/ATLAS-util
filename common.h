@@ -66,6 +66,8 @@ public:
 struct timespec operator-(const struct timespec &lhs,
                           const struct timespec &rhs);
 pid_t gettid();
+pid_t invalid_tid();
+
 void set_affinity(unsigned cpu = 0, pid_t tid = gettid());
 void set_affinity(std::initializer_list<unsigned> cpus, pid_t tid = gettid());
 
