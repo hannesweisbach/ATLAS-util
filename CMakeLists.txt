@@ -48,7 +48,7 @@ add_executable(next next.c++)
 target_link_libraries(next common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 
 add_executable(delete delete.c++)
-target_link_libraries(delete common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(delete common ${CMAKE_THREAD_LIBS_INIT})
 
 add_executable(overlap overlap.c++)
 target_link_libraries(overlap common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
