@@ -3,7 +3,6 @@
 #include <typeinfo>
 
 #include "atlas.h"
-#include "common.h"
 #include "type_list.h"
 #include "test_cases.h"
 
