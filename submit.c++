@@ -3,173 +3,59 @@
 #include <cerrno>
 #include <thread>
 #include <atomic>
-
-#include <boost/program_options.hpp>
+#include <ostream>
 
 #include "atlas.h"
-#include "common.h"
+#include "type_list.h"
+#include "test_cases.h"
 
-static bool submit_to_init() {
-  using namespace std::chrono;
-  const pid_t init{1};
-  auto err = atlas::submit(init, 0, 1s, high_resolution_clock::now() + 2s);
-  if (err) {
-    std::cout << "Expected error when submitting job to init: " << std::endl;
-    std::cout << "\t" << strerror(errno) << std::endl;
-  } else {
-    std::cout << "Submitting job to init succeeded errononeously" << std::endl;
+struct tv_nullptr {
+  static auto tv() { return static_cast<struct timeval *>(nullptr); }
+  static void result(result &result) {
+    if (result.error && result.error_code == EFAULT)
+      result.accept = true;
   }
-  return errno == EPERM;
+};
+
+struct tv_1s {
+  static auto tv() {
+    static struct timeval tv { 1, 0 };
+    return &tv;
+  }
+  static void result(result &result) {
+    if (!result.error)
+      result.accept = true;
+  }
+};
+
+static uint64_t id{0};
+
+namespace atlas {
+namespace test {
+template <typename Tid, typename Exectime, typename Deadline>
+struct submit_test {
+  static result test(std::ostringstream &os) {
+    Tid tid;
+    auto err = atlas::submit(tid.tid(), ++id, Exectime::tv(), Deadline::tv());
+    result test_result{errno, err != 0};
+
+    os << "TID " << tid.tid() << ", exec time  " << Exectime::tv()
+       << " and deadline " << Deadline::tv();
+    return test_result;
+  }
+};
+template <typename... Us> using submit = testcase<submit_test, Us...>;
+}
 }
 
-static bool submit_to_self() {
-  using namespace std::chrono;
-  auto err = atlas::np::submit(std::this_thread::get_id(), 1, 1s,
-                               high_resolution_clock::now() + 2s);
-  if (err) {
-    std::cout << "Error submitting job to self: " << std::endl;
-    std::cout << "\t" << strerror(errno) << std::endl;
-  } else {
-    std::cout << "Submitting job to self succeeded" << std::endl;
-  }
+int main() {
+  using Tids =
+      type_list<tid_thread, tid_self, tid_negative, tid_invalid, tid_init>;
+  using Deadlines = type_list<tv_nullptr, tv_1s>;
+  using Exectimes = Deadlines;
+  using combination = combinator<Tids, Exectimes, Deadlines>;
 
-  return !err;
-}
+  using testsuite = apply<atlas::test::submit, typename combination::type>;
 
-static bool submit_to_thread() {
-  using namespace std::chrono;
-  std::atomic_bool run{true};
-  std::thread t([&run] {
-    while (run)
-      ;
-  });
-
-  auto err =
-      atlas::np::submit(t.get_id(), 2, 1s, high_resolution_clock::now() + 2s);
-  run = false;
-
-  if (err) {
-    std::cout << "Error submitting job to thread: " << std::endl;
-    std::cout << "\t" << strerror(errno) << std::endl;
-  } else {
-    std::cout << "Submitting job to thread succeeded" << std::endl;
-  }
-
-  t.join();
-
-  return !err;
-}
-
-static bool submit_to_nonexistent_pid() {
-  using namespace std::chrono;
-  pid_t nonexistent = invalid_tid();
-
-  auto err =
-      atlas::submit(nonexistent, 3, 1s, high_resolution_clock::now() + 2s);
-
-  if (err) {
-    std::cout << "Expected error when submitting job to non-existent TID: "
-              << nonexistent << std::endl;
-    std::cout << "\t" << strerror(errno) << std::endl;
-  } else {
-    std::cout << "Submitting job to non-existent TID " << nonexistent
-              << " succeeded" << std::endl;
-  }
-
-  return errno == ESRCH;
-}
-
-static bool submit_to_negative_pid() {
-  using namespace std::chrono;
-  const pid_t nonexistent{-1};
-  auto err =
-      atlas::submit(nonexistent, 3, 1s, high_resolution_clock::now() + 2s);
-
-  if (err) {
-    std::cout << "Expected error when submitting job to non-existent TID -1: "
-              << std::endl;
-    std::cout << "\t" << strerror(errno) << std::endl;
-  } else {
-    std::cout << "Submitting job to non-existent TID -1 succeeded" << std::endl;
-  }
-
-  return errno == ESRCH;
-}
-
-static bool submit_invalid_exec() {
-  using namespace std::chrono;
-  struct timeval tv;
-  auto err = atlas::submit(gettid(), 4, nullptr, &tv);
-
-  if (err) {
-    std::cout << "Expected error submitting job with invalid struct timeval "
-                 "execution time pointer: " << std::endl;
-    std::cout << "\t" << strerror(errno) << std::endl;
-  } else {
-    std::cout << "Submitting job with invalid times succeeded erroneously"
-              << std::endl;
-  }
-
-  return !err;
-}
-
-static bool submit_invalid_deadline() {
-  using namespace std::chrono;
-  struct timeval tv;
-  auto err = atlas::submit(gettid(), 5, &tv, nullptr);
-
-  if (err) {
-    std::cout << "Expected error submitting job with invalid struct timeval "
-                 "deadline pointer: " << std::endl;
-    std::cout << "\t" << strerror(errno) << std::endl;
-  } else {
-    std::cout << "Submitting job with invalid times succeeded" << std::endl;
-  }
-  return !err;
-}
-
-int main(int argc, char *argv[]) {
-  namespace po = boost::program_options;
-  po::options_description desc("Interface tests for atlas::submit()");
-  desc.add_options()
-    ("help", "produce help message")
-    ("init", "Try to submit job to init (different process)")
-    ("self", "Try to submit job to self.")
-    ("thread", "Try to submit job to thread of the same process.")
-    ("nonexistent", "Try to submit job to non-existent PID (max PID + 1).")
-    ("negative", "Try to submit job to negative PID (-1).")
-    ("invalid-exec", "Try to submit job with nullptr for exec time.")
-    ("invalid-dead", "Try to submit job with nullptr for deadline.")
-    ("all", "Run all test.");
-
-  po::variables_map vm;
-  po::store(po::parse_command_line(argc, argv, desc), vm);
-  po::notify(vm);
-
-  if (vm.count("help")) {
-    std::cout << desc << std::endl;
-    return EXIT_FAILURE;
-  }
-
-  if (vm.count("init") || vm.count("all"))
-    submit_to_init();
-
-  if (vm.count("self") || vm.count("all"))
-    submit_to_self();
-
-  if (vm.count("thread") || vm.count("all"))
-    submit_to_thread();
-
-  if (vm.count("nonexistent") || vm.count("all"))
-    submit_to_nonexistent_pid();
-
-  if (vm.count("negative") || vm.count("all"))
-    submit_to_negative_pid();
-
-  if (vm.count("invalid-exec") || vm.count("all"))
-    submit_invalid_exec();
-
-  if (vm.count("invalid-dead") || vm.count("all"))
-    submit_invalid_deadline();
-
+  testsuite::invoke();
 }

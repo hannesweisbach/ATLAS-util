@@ -42,7 +42,7 @@ add_executable(blocking blocking.c++)
 target_link_libraries(blocking common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 
 add_executable(submit submit.c++)
-target_link_libraries(submit common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(submit common ${CMAKE_THREAD_LIBS_INIT})
 
 add_executable(next next.c++)
 target_link_libraries(next common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
