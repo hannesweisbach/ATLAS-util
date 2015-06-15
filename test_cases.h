@@ -156,3 +156,6 @@ struct jid_invalid {
   }
 };
 
+using Tids =
+    type_list<tid_thread, tid_self, tid_negative, tid_invalid, tid_init>;
+

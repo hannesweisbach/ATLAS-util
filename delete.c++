@@ -26,8 +26,6 @@ template <typename... Us> using remove = testcase<remove_test, Us...>;
 }
 
 int main() {
-  using Tids =
-      type_list<tid_thread, tid_self, tid_negative, tid_invalid, tid_init>;
   using Jids = type_list<jid_valid, jid_invalid>;
 
   using combination = combinator<Tids, Jids>;
