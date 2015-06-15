@@ -41,6 +41,9 @@ target_link_libraries(overrun common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES
 add_executable(blocking blocking.c++)
 target_link_libraries(blocking common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 
+add_executable(np np.c++)
+target_link_libraries(np common ${CMAKE_THREAD_LIBS_INIT})
+
 add_executable(submit submit.c++)
 target_link_libraries(submit common ${CMAKE_THREAD_LIBS_INIT})
 
