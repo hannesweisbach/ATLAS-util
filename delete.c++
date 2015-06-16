@@ -1,6 +1,5 @@
 #include <iostream>
 #include <cerrno>
-#include <typeinfo>
 
 #include "atlas.h"
 #include "type_list.h"
