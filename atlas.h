@@ -101,33 +101,24 @@ static inline pid_t from(const std::thread::id tid) {
   return from(*reinterpret_cast<const pthread_t *>(&tid));
 }
 
-template <class Rep1, class Period1, class Rep2, class Period2>
-decltype(auto) submit(const std::thread::id tid, uint64_t id,
+static inline decltype(auto) from(const std::thread &thread) {
+  return from(thread.get_id());
+}
+
+template <typename Handle, class Rep1, class Period1, class Rep2, class Period2>
+decltype(auto) submit(const Handle &tid, uint64_t id,
                       std::chrono::duration<Rep1, Period1> exec_time,
                       std::chrono::duration<Rep2, Period2> deadline) {
   return atlas::submit(from(tid), id, exec_time, deadline);
 }
 
-template <class Rep1, class Period1, class Rep2, class Period2>
-decltype(auto) submit(const pthread_t tid, uint64_t id,
-                      std::chrono::duration<Rep1, Period1> exec_time,
-                      std::chrono::duration<Rep2, Period2> deadline) {
-  return atlas::submit(from(tid), id, exec_time, deadline);
-}
-
-template <class Rep, class Period, class Clock, class Duration>
-decltype(auto) submit(const std::thread::id tid, uint64_t id,
+template <typename Handle, class Rep, class Period, class Clock, class Duration>
+decltype(auto) submit(const Handle &tid, uint64_t id,
                       std::chrono::duration<Rep, Period> exec_time,
                       std::chrono::time_point<Clock, Duration> deadline) {
   return atlas::submit(from(tid), id, exec_time, deadline);
 }
 
-template <class Rep, class Period, class Clock, class Duration>
-decltype(auto) submit(const pthread_t tid, uint64_t id,
-                      std::chrono::duration<Rep, Period> exec_time,
-                      std::chrono::time_point<Clock, Duration> deadline) {
-  return atlas::submit(from(tid), id, exec_time, deadline);
-}
 }
 
 static inline decltype(auto) next(void) {
@@ -144,12 +135,10 @@ static inline decltype(auto) remove(pid_t tid, const uint64_t id) {
 
 namespace np {
 
-static inline decltype(auto) remove(const std::thread::id tid, uint64_t id) {
+template <typename Handle>
+static inline decltype(auto) remove(const Handle &tid, uint64_t id) {
   return atlas::remove(from(tid), id);
 }
 
-static inline decltype(auto) remove(const pthread_t tid, uint64_t id) {
-  return atlas::remove(from(tid), id);
-}
 }
 }
