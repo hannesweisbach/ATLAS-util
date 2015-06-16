@@ -1,0 +1,57 @@
+#include <iostream>
+#include <cerrno>
+
+#include "atlas.h"
+#include "type_list.h"
+#include "test_cases.h"
+
+struct tv_nullptr {
+  static auto tv() { return static_cast<struct timeval *>(nullptr); }
+  static void result(result &result) {
+    if (!result.error)
+      result.accept = true;
+  }
+};
+
+struct tv_1s {
+  static auto tv() {
+    static struct timeval tv { 1, 0 };
+    return &tv;
+  }
+  static void result(result &result) {
+    if (!result.error)
+      result.accept = true;
+  }
+};
+
+
+namespace atlas {
+namespace test {
+template <typename Tid, typename Jid, typename Exec, typename Deadline>
+struct update_test {
+  static result test(std::ostringstream &os) {
+    Tid tid;
+    auto job_id = Jid::submit(tid.tid(), Tid::valid());
+    auto err = atlas::update(tid.tid(), job_id, Exec::tv(), Deadline::tv());
+    result test_result{errno, err != 0};
+
+    os << "TID " << tid.tid() << " and JID " << job_id;
+    return test_result;
+  }
+};
+
+template <typename... Us> using update = testcase<update_test, Us...>;
+}
+}
+
+int main() {
+  using Jids = type_list<jid_valid, jid_invalid>;
+  using Deadlines = type_list<tv_nullptr, tv_1s>;
+  using Exectimes = Deadlines;
+  using combination = combinator<Tids, Jids, Exectimes, Deadlines>;
+
+  using testsuite = apply<atlas::test::update, typename combination::type>;
+
+  testsuite::invoke();
+}
+

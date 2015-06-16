@@ -50,6 +50,9 @@ target_link_libraries(submit common ${CMAKE_THREAD_LIBS_INIT})
 add_executable(next next.c++)
 target_link_libraries(next common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
 
+add_executable(update update.c++)
+target_link_libraries(update common ${CMAKE_THREAD_LIBS_INIT})
+
 add_executable(delete delete.c++)
 target_link_libraries(delete common ${CMAKE_THREAD_LIBS_INIT})
 
