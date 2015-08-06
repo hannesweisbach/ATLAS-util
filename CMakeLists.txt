@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8.11)
+cmake_minimum_required (VERSION 3.2.0)
 project(ATLAS-Tests)
 
 #  -std=c++14 -stdlib=libc++ common.c++ cpu_time.cc -pthread -o cputime
