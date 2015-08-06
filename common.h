@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 #include <initializer_list>
+#include <thread>
 
 #include <cstring>
 #include <cerrno>
@@ -69,7 +70,11 @@ pid_t gettid();
 pid_t invalid_tid();
 
 void set_affinity(unsigned cpu = 0, pid_t tid = gettid());
+void set_affinity(unsigned cpu, std::thread::id);
+void set_affinity(unsigned cpu, const std::thread &);
 void set_affinity(std::initializer_list<unsigned> cpus, pid_t tid = gettid());
+void set_affinity(std::initializer_list<unsigned> cpus, std::thread::id);
+void set_affinity(std::initializer_list<unsigned> cpus, const std::thread &);
 
 using signal_handler_t = void (*)(int, siginfo_t *, void *);
 void set_signal_handler(int signal, signal_handler_t handler);
