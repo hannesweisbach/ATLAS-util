@@ -86,8 +86,20 @@ static void deadline_handler(int, siginfo_t *, void *) {
   deadline_passed = true;
 }
 
-static void ignore_handler(int, siginfo_t *, void *) {}
-void ignore_deadlines() { set_signal_handler(SIGXCPU, ignore_handler); }
+void ignore_deadlines() {
+  struct sigaction act;
+  memset(&act, 0, sizeof(act));
+#if defined(__GNU_LIBRARY__) && defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
+#endif
+  act.sa_handler = SIG_IGN;
+#if defined(__GNU_LIBRARY__) && defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+  check_zero(sigaction(SIGXCPU, &act, nullptr),
+             "Error establishing signal handler");
+}
 
 void wait_for_deadline() {
   set_deadline_handler(&deadline_handler);
