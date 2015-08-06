@@ -15,7 +15,9 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-global-constructors")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-exit-time-destructors")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-padded")
 
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
+
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME ON)
@@ -24,40 +26,40 @@ include_directories(${Boost_INCLUDE_DIR})
 
 add_library(common STATIC common.c++)
 add_executable(cputime cputime.c++)
-target_link_libraries(cputime common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(cputime common Threads::Threads ${Boost_LIBRARIES})
 
 add_executable(zero_exec zero_exec.c++)
-target_link_libraries(zero_exec common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(zero_exec common Threads::Threads ${Boost_LIBRARIES})
 
 add_executable(producer-consumer producer-consumer.c++)
-target_link_libraries(producer-consumer common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(producer-consumer common Threads::Threads ${Boost_LIBRARIES})
 
 add_executable(fork fork.c++)
 target_link_libraries(fork common)
 
 add_executable(overrun overrun.c++)
-target_link_libraries(overrun common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(overrun common Threads::Threads ${Boost_LIBRARIES})
 
 add_executable(blocking blocking.c++)
-target_link_libraries(blocking common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(blocking common Threads::Threads ${Boost_LIBRARIES})
 
 add_executable(np np.c++)
-target_link_libraries(np common ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(np common Threads::Threads)
 
 add_executable(submit submit.c++)
-target_link_libraries(submit common ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(submit common Threads::Threads)
 
 add_executable(next next.c++)
-target_link_libraries(next common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(next common Threads::Threads ${Boost_LIBRARIES})
 
 add_executable(update update.c++)
-target_link_libraries(update common ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(update common Threads::Threads)
 
 add_executable(delete delete.c++)
-target_link_libraries(delete common ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(delete common Threads::Threads)
 
 add_executable(overlap overlap.c++)
-target_link_libraries(overlap common ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(overlap common Threads::Threads ${Boost_LIBRARIES})
 
 add_executable(syscall syscall.c++)
 
