@@ -81,4 +81,5 @@ void set_signal_handler(int signal, signal_handler_t handler);
 void set_deadline_handler(signal_handler_t handler);
 void ignore_deadlines();
 void wait_for_deadline();
-
+void record_deadline_misses();
+bool reset_deadline();

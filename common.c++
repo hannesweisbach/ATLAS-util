@@ -119,4 +119,6 @@ void wait_for_deadline() {
   deadline_passed = false;
 }
 
+void record_deadline_misses() { set_deadline_handler(&deadline_handler); }
+bool reset_deadline() { return deadline_passed.exchange(false); }
 
