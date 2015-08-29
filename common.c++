@@ -54,8 +54,7 @@ void set_affinity(std::initializer_list<unsigned> cpus, pid_t tid) {
   for (const auto &cpu : cpus)
     CPU_SET(cpu, &cpu_set);
 
-  check_zero(sched_setaffinity(tid, static_cast<size_t>(CPU_COUNT(&cpu_set)),
-                               &cpu_set),
+  check_zero(sched_setaffinity(tid, sizeof(cpu_set_t), &cpu_set),
              "Error setting affinity");
 }
 
