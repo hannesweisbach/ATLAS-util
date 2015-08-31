@@ -32,13 +32,13 @@ void busy_until(const std::chrono::time_point<Clock, Duration> &t) {
   busy_until(t, [] {});
 }
 
-template <class Clock = typename std::chrono::high_resolution_clock, class Rep,
+template <class Clock = typename std::chrono::steady_clock, class Rep,
           class Period, typename Func>
 void busy_for(std::chrono::duration<Rep, Period> duration, Func &&f) {
   busy_until(Clock::now() + duration, std::forward<Func>(f));
 }
 
-template <class Clock = typename std::chrono::high_resolution_clock, class Rep,
+template <class Clock = typename std::chrono::steady_clock, class Rep,
           class Period>
 void busy_for(std::chrono::duration<Rep, Period> duration) {
   busy_until(Clock::now() + duration);
