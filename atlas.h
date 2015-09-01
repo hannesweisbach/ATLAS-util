@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef __cplusplus
 #include <chrono>
 #include <thread>
 #include <pthread.h>
@@ -8,6 +9,9 @@
 #include <stdexcept>
 
 #include <cerrno>
+#else
+#include <errno.h>
+#endif
 
 #include <unistd.h>
 #include <sys/types.h>
@@ -26,7 +30,53 @@
 #error Architecture not supported.
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+static inline long atlas_submit(pid_t tid, uint64_t id,
+                                const struct timeval *const exectime,
+                                const struct timeval *const deadline) {
+  return syscall(SYS_atlas_submit, tid, id, exectime, deadline);
+}
+
+static inline long atlas_next(void) { return syscall(SYS_atlas_next); }
+
+static inline long atlas_remove(pid_t tid, const uint64_t id) {
+  return syscall(SYS_atlas_remove, tid, id);
+}
+
+static inline long atlas_update(pid_t tid, uint64_t id,
+                                const struct timeval *const exectime,
+                                const struct timeval *const deadline) {
+  return syscall(SYS_atlas_update, tid, id, exectime, deadline);
+}
+
+#ifdef __cplusplus
+}
+#endif
+
+#ifdef __cplusplus
+
 namespace atlas {
+
+static inline decltype(auto) submit(pid_t tid, uint64_t id,
+                                    const struct timeval *const exectime,
+                                    const struct timeval *const deadline) {
+  return atlas_submit(tid, id, exectime, deadline);
+}
+
+static inline decltype(auto) update(pid_t tid, uint64_t id,
+                                    const struct timeval *const exectime,
+                                    const struct timeval *const deadline) {
+  return atlas_update(tid, id, exectime, deadline);
+}
+
+static inline decltype(auto) remove(pid_t tid, const uint64_t id) {
+  return atlas_remove(tid, id);
+}
+
+static inline decltype(auto) next() { return atlas_next(); }
 
 namespace {
 template <class Rep, class Period>
@@ -53,12 +103,6 @@ struct timeval to_timeval(const std::chrono::time_point<Clock, Duration> &t) {
 }
 }
 
-inline decltype(auto) submit(pid_t tid, uint64_t id,
-                             const struct timeval *const exectime,
-                             const struct timeval *const deadline) {
-  return syscall(SYS_atlas_submit, tid, id, exectime, deadline);
-}
-
 template <class Rep1, class Period1, class Rep2, class Period2>
 decltype(auto) submit(pid_t tid, uint64_t id,
                       std::chrono::duration<Rep1, Period1> exec_time,
@@ -67,7 +111,7 @@ decltype(auto) submit(pid_t tid, uint64_t id,
   struct timeval tv_deadline =
       to_timeval(std::chrono::high_resolution_clock::now() + deadline);
 
-  return submit(tid, id, &tv_exectime, &tv_deadline);
+  return atlas_submit(tid, id, &tv_exectime, &tv_deadline);
 }
 
 template <class Rep, class Period, class Clock, class Duration>
@@ -77,7 +121,44 @@ decltype(auto) submit(pid_t tid, uint64_t id,
   struct timeval tv_exectime = to_timeval(exec_time);
   struct timeval tv_deadline = to_timeval(deadline);
 
-  return submit(tid, id, &tv_exectime, &tv_deadline);
+  return atlas_submit(tid, id, &tv_exectime, &tv_deadline);
+}
+
+template <class Rep1, class Period1, class Rep2, class Period2>
+decltype(auto) update(pid_t tid, uint64_t id,
+                      std::chrono::duration<Rep1, Period1> exec_time,
+                      std::chrono::duration<Rep2, Period2> deadline) {
+  struct timeval tv_exectime = to_timeval(exec_time);
+  struct timeval tv_deadline =
+      to_timeval(std::chrono::high_resolution_clock::now() + deadline);
+
+  return atlas_update(tid, id, &tv_exectime, &tv_deadline);
+}
+
+template <class Rep, class Period, class Clock, class Duration>
+decltype(auto) update(pid_t tid, uint64_t id,
+                      std::chrono::duration<Rep, Period> exec_time,
+                      std::chrono::time_point<Clock, Duration> deadline) {
+  struct timeval tv_exectime = to_timeval(exec_time);
+  struct timeval tv_deadline = to_timeval(deadline);
+
+  return atlas_update(tid, id, &tv_exectime, &tv_deadline);
+}
+
+template <class Rep1, class Period1>
+decltype(auto) update(pid_t tid, uint64_t id,
+                      std::chrono::duration<Rep1, Period1> exec_time) {
+  struct timeval tv_exectime = to_timeval(exec_time);
+
+  return atlas_update(tid, id, &tv_exectime, nullptr);
+}
+
+template <class Clock, class Duration>
+decltype(auto) update(pid_t tid, uint64_t id,
+                      std::chrono::time_point<Clock, Duration> deadline) {
+  struct timeval tv_deadline = to_timeval(deadline);
+
+  return atlas_update(tid, id, nullptr, &tv_deadline);
 }
 
 namespace np {
@@ -121,66 +202,10 @@ decltype(auto) submit(const Handle &tid, uint64_t id,
   return atlas::submit(from(tid), id, exec_time, deadline);
 }
 
-}
-
-static inline decltype(auto) next(void) { return syscall(SYS_atlas_next); }
-
-static inline decltype(auto) remove(pid_t tid, const uint64_t id) {
-  return syscall(SYS_atlas_remove, tid, id);
-}
-
-namespace np {
-
 template <typename Handle>
 static inline decltype(auto) remove(const Handle &tid, uint64_t id) {
-  return atlas::remove(from(tid), id);
+  return atlas_remove(from(tid), id);
 }
-
-}
-
-inline decltype(auto) update(pid_t tid, uint64_t id,
-                             const struct timeval *const exectime,
-                             const struct timeval *const deadline) {
-  return syscall(SYS_atlas_update, tid, id, exectime, deadline);
-}
-
-template <class Rep1, class Period1, class Rep2, class Period2>
-decltype(auto) update(pid_t tid, uint64_t id,
-                      std::chrono::duration<Rep1, Period1> exec_time,
-                      std::chrono::duration<Rep2, Period2> deadline) {
-  struct timeval tv_exectime = to_timeval(exec_time);
-  struct timeval tv_deadline =
-      to_timeval(std::chrono::high_resolution_clock::now() + deadline);
-
-  return update(tid, id, &tv_exectime, &tv_deadline);
-}
-
-template <class Rep, class Period, class Clock, class Duration>
-decltype(auto) update(pid_t tid, uint64_t id,
-                      std::chrono::duration<Rep, Period> exec_time,
-                      std::chrono::time_point<Clock, Duration> deadline) {
-  struct timeval tv_exectime = to_timeval(exec_time);
-  struct timeval tv_deadline = to_timeval(deadline);
-
-  return update(tid, id, &tv_exectime, &tv_deadline);
-}
-
-template <class Rep1, class Period1>
-decltype(auto) update(pid_t tid, uint64_t id,
-                      std::chrono::duration<Rep1, Period1> exec_time) {
-  struct timeval tv_exectime = to_timeval(exec_time);
-
-  return update(tid, id, &tv_exectime, nullptr);
-}
-
-template <class Clock, class Duration>
-decltype(auto) update(pid_t tid, uint64_t id,
-                      std::chrono::time_point<Clock, Duration> deadline) {
-  struct timeval tv_deadline = to_timeval(deadline);
-
-  return update(tid, id, nullptr, &tv_deadline);
-}
-namespace np {
 
 template <typename Handle, class Rep1, class Period1, class Rep2, class Period2>
 decltype(auto) update(const Handle &handle, uint64_t id,
@@ -205,3 +230,5 @@ decltype(auto) update(const Handle &tid, uint64_t id,
 }
 }
 }
+
+#endif /* __cplusplus */
