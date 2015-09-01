@@ -123,13 +123,7 @@ decltype(auto) submit(const Handle &tid, uint64_t id,
 
 }
 
-static inline decltype(auto) next(void) {
-  long ret;
-  for (ret = syscall(SYS_atlas_next); ret && errno == EINTR;
-       ret = syscall(SYS_atlas_next)) {
-  }
-  return ret;
-}
+static inline decltype(auto) next(void) { return syscall(SYS_atlas_next); }
 
 static inline decltype(auto) remove(pid_t tid, const uint64_t id) {
   return syscall(SYS_atlas_remove, tid, id);
