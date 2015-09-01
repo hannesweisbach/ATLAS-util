@@ -95,6 +95,29 @@ static void overrun_recover() {
   worker.join();
 }
 
+static void finish_early() {
+  using namespace std::chrono;
+  std::thread worker([] {
+    check_zero(atlas::next());
+    std::cout << "Scheduler: " << sched_getscheduler(0) << " (7)" << std::endl;
+
+    busy_for(300ms);
+
+    check_zero(atlas::next());
+
+    for (int i = 0; i < 11; ++i) {
+      std::cout << "Scheduler: " << sched_getscheduler(0) << " (0)"
+                << std::endl;
+      busy_for(100ms);
+    }
+  });
+
+  auto now = steady_clock::now();
+  check_zero(atlas::np::submit(worker, id++, 1s, now + 1s));
+  check_zero(atlas::np::submit(worker, id++, 1s, now + 2.1s));
+  worker.join();
+}
+
 int main(int argc, char *argv[]) {
   namespace po = boost::program_options;
   po::options_description desc("Overrun/overload tests");
@@ -104,7 +127,8 @@ int main(int argc, char *argv[]) {
     ("overload", "run overload test")
     ("cfs", "run overrun-into-CFS test")
     ("recover", "run overrun-into-Recover test")
-    ("combined", "run overrun-into-CFS/Recover combined test");
+    ("combined", "run overrun-into-CFS/Recover combined test")
+    ("early", "finish an ATLAS job early");
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -125,6 +149,10 @@ int main(int argc, char *argv[]) {
 
   if (vm.count("recover") || vm.count("all")) {
     overrun_recover();
+  }
+
+  if (vm.count("early") || vm.count("all")) {
+    finish_early();
   }
 
   if (vm.count("combined")) {
