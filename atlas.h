@@ -21,6 +21,9 @@
 #define SYS_atlas_submit 324
 #define SYS_atlas_update 325
 #define SYS_atlas_remove 326
+#define SYS_atlas_tp_create 327
+#define SYS_atlas_tp_destroy 328
+#define SYS_atlas_tp_join 329
 #elif defined(__i386__)
 #define SYS_atlas_next 359
 #define SYS_atlas_submit 360
@@ -52,6 +55,18 @@ static inline long atlas_update(pid_t tid, uint64_t id,
   return syscall(SYS_atlas_update, tid, id, exectime, deadline);
 }
 
+static inline long atlas_tp_create(uint64_t *id) {
+  return syscall(SYS_atlas_tp_create, id);
+}
+
+static inline long atlas_tp_destroy(const uint64_t id) {
+  return syscall(SYS_atlas_tp_destroy, id);
+}
+
+static inline long atlas_tp_join(const uint64_t id) {
+  return syscall(SYS_atlas_tp_join, id);
+}
+
 #ifdef __cplusplus
 }
 #endif
@@ -77,6 +92,20 @@ static inline decltype(auto) remove(pid_t tid, const uint64_t id) {
 }
 
 static inline decltype(auto) next() { return atlas_next(); }
+
+namespace threadpool {
+static inline decltype(auto) create(uint64_t &id) {
+  return syscall(SYS_atlas_tp_create, &id);
+}
+
+static inline decltype(auto) destroy(const uint64_t id) {
+  return syscall(SYS_atlas_tp_destroy, id);
+}
+
+static inline decltype(auto) join(const uint64_t id) {
+  return syscall(SYS_atlas_tp_join, id);
+}
+}
 
 namespace {
 template <class Rep, class Period>
