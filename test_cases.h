@@ -91,8 +91,9 @@ struct tid_thread {
   std::atomic_bool running{true};
   tid_thread()
       : t([this] {
+          using namespace std::chrono;
           while (running)
-            std::this_thread::yield();
+            std::this_thread::sleep_for(10ms);
         }) {}
   ~tid_thread() {
     running = false;
