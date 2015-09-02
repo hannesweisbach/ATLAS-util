@@ -131,6 +131,7 @@ static void restarting() {
 int main(int argc, char *argv[]) {
   namespace po = boost::program_options;
   po::options_description desc("Interface tests for atlas::submit()");
+  // clang-format off
   desc.add_options()
     ("help", "produce help message")
     ("wakeup-atlas", "Submit job when blocking in next under ATLAS.")
@@ -141,6 +142,7 @@ int main(int argc, char *argv[]) {
     ("signal-cfs", "Send signal to thread blocked in next under CFS.")
     ("signal-repeat", "Test restarting of next() when blocking.")
     ("all", "Run all test.");
+  // clang-format on
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
