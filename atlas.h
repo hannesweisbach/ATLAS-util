@@ -44,7 +44,9 @@ static inline long atlas_submit(pid_t tid, uint64_t id,
   return syscall(SYS_atlas_submit, tid, id, exectime, deadline);
 }
 
-static inline long atlas_next(void) { return syscall(SYS_atlas_next); }
+static inline long atlas_next(uint64_t *next) {
+  return syscall(SYS_atlas_next, next);
+}
 
 static inline long atlas_remove(pid_t tid, const uint64_t id) {
   return syscall(SYS_atlas_remove, tid, id);
@@ -98,7 +100,12 @@ static inline decltype(auto) remove(pid_t tid, const uint64_t id) {
   return atlas_remove(tid, id);
 }
 
-static inline decltype(auto) next() { return atlas_next(); }
+static inline decltype(auto) next(uint64_t &next) { return atlas_next(&next); }
+
+static inline decltype(auto) next() {
+  uint64_t dummy;
+  return atlas_next(&dummy);
+}
 
 namespace threadpool {
 static inline decltype(auto) create(uint64_t &id) {
