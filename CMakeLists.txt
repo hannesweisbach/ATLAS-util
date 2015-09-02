@@ -40,9 +40,6 @@ target_link_libraries(producer-consumer common Threads::Threads ${Boost_LIBRARIE
 add_executable(fork fork.c++)
 target_link_libraries(fork common)
 
-add_executable(next next.c++)
-target_link_libraries(next common Threads::Threads ${Boost_LIBRARIES})
-
 add_executable(overrun overrun.c++)
 target_link_libraries(overrun common Threads::Threads ${Boost_LIBRARIES})
 
