@@ -158,6 +158,26 @@ struct jid_invalid {
   }
 };
 
+struct tv_nullptr {
+  static auto tv() { return static_cast<struct timeval *>(nullptr); }
+  static void result(result &result) {
+    if (result.error && result.error_code == EFAULT)
+      result.accept = true;
+  }
+};
+
+struct tv_1s {
+  static auto tv() {
+    static struct timeval tv { 1, 0 };
+    return &tv;
+  }
+  static void result(result &result) {
+    if (!result.error)
+      result.accept = true;
+  }
+};
+
 using Tids =
     type_list<tid_thread, tid_self, tid_negative, tid_invalid, tid_init>;
+using Times = type_list<tv_nullptr, tv_1s>;
 

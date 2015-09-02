@@ -5,26 +5,6 @@
 #include "type_list.h"
 #include "test_cases.h"
 
-struct tv_nullptr {
-  static auto tv() { return static_cast<struct timeval *>(nullptr); }
-  static void result(result &result) {
-    if (!result.error)
-      result.accept = true;
-  }
-};
-
-struct tv_1s {
-  static auto tv() {
-    static struct timeval tv { 1, 0 };
-    return &tv;
-  }
-  static void result(result &result) {
-    if (!result.error)
-      result.accept = true;
-  }
-};
-
-
 namespace atlas {
 namespace test {
 template <typename Tid, typename Jid, typename Exec, typename Deadline>
@@ -46,8 +26,8 @@ template <typename... Us> using update = testcase<update_test, Us...>;
 
 int main() {
   using Jids = type_list<jid_valid, jid_invalid>;
-  using Deadlines = type_list<tv_nullptr, tv_1s>;
-  using Exectimes = Deadlines;
+  using Deadlines = Times;
+  using Exectimes = Times;
   using combination = combinator<Tids, Jids, Exectimes, Deadlines>;
 
   using testsuite = apply<atlas::test::update, typename combination::type>;
