@@ -2,11 +2,16 @@
 #include <iostream>
 #include <chrono>
 #include <atomic>
+#include <future>
+
+#include <cerrno>
 
 #include <boost/program_options.hpp>
 
 #include "atlas.h"
 #include "common.h"
+#include "type_list.h"
+#include "test_cases.h"
 
 using namespace std::chrono;
 
@@ -128,6 +133,54 @@ static void restarting() {
   worker.join();
 }
 
+struct nullptr_id {
+  static uint64_t *id() { return nullptr; }
+  static void result(result &result) {
+    if (result.error && result.error_code == EFAULT)
+      result.accept = true;
+  }
+};
+
+struct invalid_id {
+  static uint64_t *id() { return reinterpret_cast<uint64_t *>(0xdeadbabe); }
+  static void result(result &result) {
+    if (result.error && result.error_code == EFAULT)
+      result.accept = true;
+  }
+};
+
+struct valid_id {
+  static uint64_t *id() {
+    static uint64_t id_;
+    return &id_;
+  }
+  static void result(result &result) {
+    if (!result.error)
+      result.accept = true;
+  }
+};
+
+namespace atlas::test {
+  template <typename IdPtr> struct next_test {
+    static result test(std::ostringstream &os) {
+      std::promise<struct result> promise;
+      auto future = promise.get_future();
+      std::thread worker([promise = std::move(promise)]() mutable {
+        auto err = atlas_next(IdPtr::id());
+        promise.set_value({errno, err != 0});
+      });
+
+      atlas::np::submit(worker, 1, 1s, 1s);
+      os << "IdPtr: " << std::hex << IdPtr::id();
+
+      worker.join();
+      return future.get();
+    }
+  };
+
+  template <typename... Us> using next = testcase<next_test, Us...>;
+}
+
 int main(int argc, char *argv[]) {
   namespace po = boost::program_options;
   po::options_description desc("Interface tests for atlas::submit()");
@@ -141,6 +194,7 @@ int main(int argc, char *argv[]) {
     ("signal-recover", "Send signal to thread blocked in next under Recover.")
     ("signal-cfs", "Send signal to thread blocked in next under CFS.")
     ("signal-repeat", "Test restarting of next() when blocking.")
+    ("interface", "Run testsuite to check kernel interface.")
     ("all", "Run all test.");
   // clang-format on
 
@@ -170,5 +224,13 @@ int main(int argc, char *argv[]) {
 
   if (vm.count("signal-repeat") || vm.count("all"))
     restarting();
+
+  if (vm.count("interface") || vm.count("all")) {
+    using IdPtrs = type_list<nullptr_id, valid_id, invalid_id>;
+    using combination = combinator<IdPtrs>;
+    using testsuite = apply<atlas::test::next, typename combination::type>;
+
+    testsuite::invoke();
+  }
 }
 
