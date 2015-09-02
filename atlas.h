@@ -24,6 +24,7 @@
 #define SYS_atlas_tp_create 327
 #define SYS_atlas_tp_destroy 328
 #define SYS_atlas_tp_join 329
+#define SYS_atlas_tp_submit 330
 #elif defined(__i386__)
 #define SYS_atlas_next 359
 #define SYS_atlas_submit 360
@@ -67,6 +68,12 @@ static inline long atlas_tp_join(const uint64_t id) {
   return syscall(SYS_atlas_tp_join, id);
 }
 
+static inline long atlas_submit(const uint64_t tpid, const uint64_t id,
+                                const struct timeval *const exectime,
+                                const struct timeval *const deadline) {
+  return syscall(SYS_atlas_tp_submit, tpid, id, exectime, deadline);
+}
+
 #ifdef __cplusplus
 }
 #endif
@@ -104,6 +111,12 @@ static inline decltype(auto) destroy(const uint64_t id) {
 
 static inline decltype(auto) join(const uint64_t id) {
   return syscall(SYS_atlas_tp_join, id);
+}
+
+static inline decltype(auto) submit(const uint64_t tpid, const uint64_t id,
+                                    const struct timeval *const exectime,
+                                    const struct timeval *const deadline) {
+  return syscall(SYS_atlas_tp_submit, tpid, id, exectime, deadline);
 }
 }
 
