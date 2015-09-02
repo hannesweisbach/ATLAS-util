@@ -98,6 +98,35 @@ static bool wakeup(Workload &&w, Test &&t) {
  * needs to be spawned. The signal test below subsumes the exit test, since
  * sleeping threads are woken up by delivering SIGKILL.
  */
+static void sighandler(int sig, siginfo_t *, void *) {
+  std::cout << "Handling signal " << sig << std::endl;
+}
+
+static void restarting() {
+  using namespace std::literals::chrono_literals;
+  using namespace std::chrono;
+  std::atomic_bool done{false};
+  std::thread worker([&done] {
+    set_signal_handler(SIGUSR1, sighandler);
+    for (; !done;) {
+      std::cout << "In next." << std::endl;
+      atlas::next();
+      std::cout << "Out next." << std::endl;
+    }
+  });
+
+  atlas::np::submit(worker, id++, 1s, steady_clock::now() + 2s);
+  std::this_thread::sleep_for(100ms);
+
+  for (int i = 0; i < 10; ++i) {
+    test_signal(worker.get_id(), SIGUSR1);
+    std::this_thread::sleep_for(10ms);
+  }
+
+  done = true;
+  atlas::np::submit(worker, id++, 1s, steady_clock::now() + 2s);
+  worker.join();
+}
 
 int main(int argc, char *argv[]) {
   namespace po = boost::program_options;
@@ -110,6 +139,7 @@ int main(int argc, char *argv[]) {
     ("signal-atlas", "Send signal to thread blocked in next under ATLAS.")
     ("signal-recover", "Send signal to thread blocked in next under Recover.")
     ("signal-cfs", "Send signal to thread blocked in next under CFS.")
+    ("signal-repeat", "Test restarting of next() when blocking.")
     ("all", "Run all test.");
 
   po::variables_map vm;
@@ -135,5 +165,8 @@ int main(int argc, char *argv[]) {
     wakeup(recover_load, test_sig);
   if (vm.count("signal-cfs") || vm.count("all"))
     wakeup(cfs_load, test_sig);
+
+  if (vm.count("signal-repeat") || vm.count("all"))
+    restarting();
 }
 
