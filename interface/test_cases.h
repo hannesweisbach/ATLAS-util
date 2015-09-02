@@ -13,10 +13,10 @@ static uint64_t id{0};
 }
 
 struct result {
-  long error_code;
+  int error_code;
   const bool error;
   bool accept;
-  result(long error_code_, bool error_)
+  result(int error_code_, bool error_)
       : error_code(error_code_), error(error_), accept(false) {}
   template <typename Char>
   friend std::basic_ostream<Char> &operator<<(std::basic_ostream<Char> &os,
