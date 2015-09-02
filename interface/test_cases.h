@@ -65,7 +65,8 @@ struct testcase {
 
     std::cout << "Test " << type_printer<Ts...>{} << " " << result;
     if (result.error)
-      std::cout << " with \"" << strerror(errno) << "\" (" << errno << ")";
+      std::cout << " with \"" << strerror(result.error_code) << "\" ("
+                << result.error_code << ")";
     if (!arguments.empty())
       std::cout << " when invoked with " << arguments << std::endl;
   }
