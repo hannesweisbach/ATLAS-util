@@ -26,6 +26,7 @@ include_directories(${Boost_INCLUDE_DIR})
 include_directories(.)
 
 add_subdirectory(interface)
+add_subdirectory(benchmarks)
 
 add_library(common STATIC common.c++)
 add_executable(cputime cputime.c++)
